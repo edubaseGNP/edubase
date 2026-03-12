@@ -229,6 +229,7 @@ UNFOLD = {
                 'items': [
                     {'title': 'Školní ročníky', 'icon': 'calendar_today', 'link': '/admin/materials/schoolyear/'},
                     {'title': 'Předměty', 'icon': 'class', 'link': '/admin/materials/subject/'},
+                    {'title': 'Předměty v ročnících', 'icon': 'school', 'link': '/admin/materials/subjectyear/'},
                     {'title': 'Typy materiálů', 'icon': 'category', 'link': '/admin/materials/materialtype/'},
                     {'title': 'Materiály', 'icon': 'description', 'link': '/admin/materials/material/'},
                     {'title': 'Štítky', 'icon': 'label', 'link': '/admin/materials/tag/'},

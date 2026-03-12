@@ -4,7 +4,7 @@ from django import forms
 from django.conf import settings
 from django.utils.translation import gettext_lazy as _
 
-from .models import Material, Subject, Tag
+from .models import Material, SubjectYear, Tag
 
 
 class MaterialUploadForm(forms.ModelForm):
@@ -23,18 +23,20 @@ class MaterialUploadForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.user = user
 
-        # Restrict subject choices to subjects where the user can upload
+        # Restrict subject choices to SubjectYears where the user can upload
         if user and not user.is_admin_role:
             if user.is_teacher:
-                self.fields['subject'].queryset = Subject.objects.filter(
+                self.fields['subject'].queryset = SubjectYear.objects.filter(
                     teachers=user
-                ).select_related('school_year')
+                ).select_related('subject', 'school_year')
             else:
                 # VIP student – only subjects where VIP was granted
                 vip_subject_ids = user.vip_subjects.values_list('subject_id', flat=True)
-                self.fields['subject'].queryset = Subject.objects.filter(
+                self.fields['subject'].queryset = SubjectYear.objects.filter(
                     pk__in=vip_subject_ids
-                ).select_related('school_year')
+                ).select_related('subject', 'school_year')
+        else:
+            self.fields['subject'].queryset = SubjectYear.objects.select_related('subject', 'school_year')
 
     def clean_file(self):
         file = self.cleaned_data.get('file')

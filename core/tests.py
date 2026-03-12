@@ -8,7 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from core.models import AuditLog, Notification, SiteConfig
-from materials.models import Material, MaterialType, SchoolYear, Subject
+from materials.models import Material, MaterialType, SchoolYear, Subject, SubjectYear
 
 User = get_user_model()
 
@@ -34,8 +34,9 @@ class CoreFixtureMixin:
             role=User.Role.STUDENT,
         )
         cls.year = SchoolYear.objects.create(name='Sekunda B', slug='sekunda-b')
-        cls.subject = Subject.objects.create(
-            name='Fyzika', slug='fyzika', school_year=cls.year,
+        cls.subject_def = Subject.objects.create(name='Fyzika', slug='fyzika')
+        cls.subject = SubjectYear.objects.create(
+            subject=cls.subject_def, school_year=cls.year,
         )
         cls.subject.teachers.add(cls.teacher)
         cls.mtype, _ = MaterialType.objects.get_or_create(name='Podklady', slug='podklady')

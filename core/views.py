@@ -29,7 +29,7 @@ def homepage(request):
     favorites = list(
         user.favorite_subjects
         .filter(school_year__is_active=True)
-        .select_related('school_year')
+        .select_related('school_year', 'subject')
         .prefetch_related('materials__author', 'materials__material_type')
     )
 
@@ -52,7 +52,7 @@ def homepage(request):
 
     if user.is_admin_role or user.is_staff:
         from django.contrib.auth import get_user_model
-        from materials.models import Material, SchoolYear, Subject
+        from materials.models import Material, SchoolYear, Subject, SubjectYear
         from .models import AuditLog
         U = get_user_model()
         ctx['admin_stats'] = {
@@ -75,7 +75,7 @@ def subject_preferences(request):
     school_years = (
         SchoolYear.objects
         .filter(is_active=True)
-        .prefetch_related('subjects')
+        .prefetch_related('subjects__subject')
         .order_by('name')
     )
     current_ids = set(user.favorite_subjects.values_list('id', flat=True))
@@ -128,10 +128,10 @@ def profile(request):
     )
     recent_materials = (
         my_materials
-        .select_related('subject__school_year', 'material_type')
+        .select_related('subject__subject', 'subject__school_year', 'material_type')
         .order_by('-created_at')[:10]
     )
-    favorite_subjects = user.favorite_subjects.select_related('school_year').all()
+    favorite_subjects = user.favorite_subjects.select_related('school_year', 'subject').all()
 
     return render(request, 'core/profile.html', {
         'profile_user': user,
@@ -159,16 +159,16 @@ def notifications_list(request):
 def teacher_statistics(request):
     """Statistics for teachers (own subjects) and admins (all subjects)."""
     from django.db.models import Count, Sum
-    from materials.models import Material, Subject
+    from materials.models import Material, SubjectYear
 
     user = request.user
     if not (user.is_teacher or user.is_admin_role or user.is_staff):
         raise PermissionDenied
 
     if user.is_admin_role or user.is_staff:
-        subjects = Subject.objects.select_related('school_year').order_by('school_year__name', 'name')
+        subjects = SubjectYear.objects.select_related('school_year', 'subject').order_by('school_year__name', 'subject__name')
     else:
-        subjects = user.taught_subjects.select_related('school_year').order_by('school_year__name', 'name')
+        subjects = user.taught_subjects.select_related('school_year', 'subject').order_by('school_year__name', 'subject__name')
 
     subject_stats = []
     for subject in subjects:

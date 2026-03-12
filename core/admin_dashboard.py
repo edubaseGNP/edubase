@@ -65,7 +65,8 @@ def dashboard_callback(request, context):
     # ------------------------------------------------------------------
     from materials.models import Subject
     top_subjects = (
-        Subject.objects.annotate(mat_count=Count('materials', filter=Q(materials__is_published=True)))
+        Subject.objects
+        .annotate(mat_count=Count('years__materials', filter=Q(years__materials__is_published=True)))
         .order_by('-mat_count')[:10]
     )
     context['chart_subjects'] = json.dumps({
@@ -88,7 +89,7 @@ def dashboard_callback(request, context):
     # ------------------------------------------------------------------
     context['recent_materials'] = (
         Material.objects.filter(is_published=True)
-        .select_related('author', 'subject__school_year', 'material_type')
+        .select_related('author', 'subject__subject', 'subject__school_year', 'material_type')
         .order_by('-created_at')[:10]
     )
 

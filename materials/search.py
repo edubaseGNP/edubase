@@ -96,7 +96,7 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
 
         subject_slug = self.request.GET.get('subject', '')
         if subject_slug:
-            base_qs = base_qs.filter(subject__slug=subject_slug)
+            base_qs = base_qs.filter(subject__subject__slug=subject_slug)
 
         return (
             base_qs
@@ -129,13 +129,9 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
         ctx['year_filter'] = year_filter
         ctx['subject_filter'] = subject_filter
 
-        from .models import SchoolYear, Subject
+        from .models import SchoolYear, Subject as SubjectDef
         ctx['school_years'] = SchoolYear.objects.filter(is_active=True)
-        ctx['all_subjects'] = (
-            Subject.objects
-            .select_related('school_year')
-            .order_by('school_year__name', 'name')
-        )
+        ctx['all_subjects'] = SubjectDef.objects.order_by('name')
 
         # Annotate each result with hit_count and excerpt
         if query:

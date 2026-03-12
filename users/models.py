@@ -42,7 +42,7 @@ class User(AbstractUser):
     )
     # Student homepage: up to 4 pinned subjects for quick access
     favorite_subjects = models.ManyToManyField(
-        'materials.Subject',
+        'materials.SubjectYear',
         blank=True,
         related_name='favorited_by',
         verbose_name=_('Oblíbené předměty'),

@@ -10,7 +10,7 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin, TabularInline
 
-from .models import Comment, Material, MaterialType, SchoolYear, SearchLog, Subject, SubjectVIP, Tag
+from .models import Comment, Material, MaterialType, SchoolYear, SearchLog, Subject, SubjectVIP, SubjectYear, Tag
 
 
 # ---------------------------------------------------------------------------
@@ -46,14 +46,14 @@ def _export_xlsx(filename, headers, rows):
 
 
 def _material_rows(qs):
-    qs = qs.select_related('subject__school_year', 'material_type', 'author').annotate(
+    qs = qs.select_related('subject__subject', 'subject__school_year', 'material_type', 'author').annotate(
         like_count=Count('likes', distinct=True)
     )
     rows = []
     for m in qs:
         rows.append([
             m.pk, m.title,
-            str(m.subject.school_year), str(m.subject),
+            str(m.subject.school_year), str(m.subject.subject.name),
             str(m.material_type),
             m.author.email if m.author else '',
             m.download_count, m.like_count,
@@ -69,10 +69,15 @@ MATERIAL_HEADERS = [
 ]
 
 
-class SubjectInline(TabularInline):
-    model = Subject
-    fields = ['name', 'slug', 'description']
-    prepopulated_fields = {'slug': ('name',)}
+# ---------------------------------------------------------------------------
+# Inlines
+# ---------------------------------------------------------------------------
+
+class SubjectYearInline(TabularInline):
+    model = SubjectYear
+    fields = ['subject', 'teachers']
+    autocomplete_fields = ['subject']
+    filter_horizontal = ['teachers']
     extra = 0
 
 
@@ -90,22 +95,57 @@ class MaterialInline(TabularInline):
     extra = 0
 
 
+class SubjectYearsInline(TabularInline):
+    """Used inside SubjectAdmin to show which years this subject appears in."""
+    model = SubjectYear
+    fields = ['school_year', 'teachers']
+    autocomplete_fields = ['school_year']
+    filter_horizontal = ['teachers']
+    extra = 0
+    verbose_name = _('Ročník')
+    verbose_name_plural = _('Ročníky, kde se předmět vyučuje')
+
+
+# ---------------------------------------------------------------------------
+# Model admins
+# ---------------------------------------------------------------------------
+
 @admin.register(SchoolYear)
 class SchoolYearAdmin(ModelAdmin):
-    list_display = ['name', 'is_active', 'created_by', 'created_at']
+    list_display = ['name', 'is_active', 'subject_count', 'created_by', 'created_at']
     list_filter = ['is_active']
     search_fields = ['name']
     prepopulated_fields = {'slug': ('name',)}
-    inlines = [SubjectInline]
+    inlines = [SubjectYearInline]
+
+    @admin.display(description=_('Předmětů'))
+    def subject_count(self, obj):
+        return obj.subjects.count()
 
 
 @admin.register(Subject)
 class SubjectAdmin(ModelAdmin):
-    list_display = ['name', 'school_year', 'created_at']
-    list_filter = ['school_year']
-    search_fields = ['name', 'school_year__name']
+    list_display = ['name', 'slug', 'year_count', 'material_count']
+    search_fields = ['name']
     prepopulated_fields = {'slug': ('name',)}
-    autocomplete_fields = ['teachers']
+    inlines = [SubjectYearsInline]
+
+    @admin.display(description=_('Ročníků'))
+    def year_count(self, obj):
+        return obj.years.count()
+
+    @admin.display(description=_('Materiálů'))
+    def material_count(self, obj):
+        return Material.objects.filter(subject__subject=obj).count()
+
+
+@admin.register(SubjectYear)
+class SubjectYearAdmin(ModelAdmin):
+    list_display = ['subject', 'school_year']
+    list_filter = ['school_year']
+    search_fields = ['subject__name', 'school_year__name']
+    autocomplete_fields = ['subject', 'school_year']
+    filter_horizontal = ['teachers']
     inlines = [SubjectVIPInline, MaterialInline]
 
 
@@ -192,7 +232,7 @@ class CommentAdmin(ModelAdmin):
 class SubjectVIPAdmin(ModelAdmin):
     list_display = ['user', 'subject', 'granted_by', 'granted_at']
     list_filter = ['subject__school_year', 'subject']
-    search_fields = ['user__email', 'user__username', 'subject__name']
+    search_fields = ['user__email', 'user__username', 'subject__subject__name']
     autocomplete_fields = ['user', 'subject']
     readonly_fields = ['granted_at']
 
@@ -212,10 +252,10 @@ class ZeroResultsFilter(admin.SimpleListFilter):
 
 @admin.register(SearchLog)
 class SearchLogAdmin(ModelAdmin):
-    list_display = ['timestamp', 'query', 'user', 'results_count', 'zero_results_badge', 'year_filter', 'subject_filter']
+    list_display = ['timestamp', 'query', 'user', 'results_count', 'zero_results_badge', 'duration_ms', 'year_filter', 'subject_filter']
     list_filter = [ZeroResultsFilter, 'year_filter', 'subject_filter']
     search_fields = ['query', 'user__email', 'user__username']
-    readonly_fields = ['query', 'user', 'results_count', 'year_filter', 'subject_filter', 'timestamp']
+    readonly_fields = ['query', 'user', 'results_count', 'year_filter', 'subject_filter', 'timestamp', 'duration_ms', 'clicked_result_id']
     date_hierarchy = 'timestamp'
     actions = ['export_csv']
 
@@ -227,13 +267,14 @@ class SearchLogAdmin(ModelAdmin):
 
     @admin.action(description=_('Exportovat jako CSV'))
     def export_csv(self, request, queryset):
-        headers = ['Čas', 'Dotaz', 'Uživatel', 'Výsledky', 'Filtr ročník', 'Filtr předmět']
+        headers = ['Čas', 'Dotaz', 'Uživatel', 'Výsledky', 'Doba (ms)', 'Filtr ročník', 'Filtr předmět']
         rows = [
             [
                 s.timestamp.strftime('%Y-%m-%d %H:%M'),
                 s.query,
                 s.user.email if s.user else '',
                 s.results_count,
+                s.duration_ms or '',
                 s.year_filter,
                 s.subject_filter,
             ]

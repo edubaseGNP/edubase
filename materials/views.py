@@ -18,7 +18,7 @@ from core.audit import audit_log
 from core.models import AuditLog
 
 from .forms import MaterialUploadForm
-from .models import Comment, Material, MaterialLike, SchoolYear, Subject, SubjectVIP
+from .models import Comment, Material, MaterialLike, SchoolYear, Subject, SubjectVIP, SubjectYear
 from .utils import compress_image_file
 
 logger = logging.getLogger(__name__)
@@ -36,15 +36,15 @@ class SchoolYearListView(LoginRequiredMixin, ListView):
 
 
 class SubjectDetailView(LoginRequiredMixin, DetailView):
-    model = Subject
+    model = SubjectYear
     template_name = 'materials/subject_detail.html'
     context_object_name = 'subject'
 
     def get_object(self, queryset=None):
         return get_object_or_404(
-            Subject.objects.select_related('school_year').prefetch_related('teachers'),
+            SubjectYear.objects.select_related('subject', 'school_year').prefetch_related('teachers'),
             school_year__slug=self.kwargs['year_slug'],
-            slug=self.kwargs['subject_slug'],
+            subject__slug=self.kwargs['subject_slug'],
         )
 
     def get_context_data(self, **kwargs):
@@ -133,9 +133,9 @@ class MaterialUploadView(LoginRequiredMixin, View):
     def _get_subject(self, year_slug, subject_slug):
         if year_slug and subject_slug:
             return get_object_or_404(
-                Subject,
+                SubjectYear,
                 school_year__slug=year_slug,
-                slug=subject_slug,
+                subject__slug=subject_slug,
             )
         return None
 
@@ -154,7 +154,7 @@ class MaterialDetailView(LoginRequiredMixin, DetailView):
     model = Material
     template_name = 'materials/material_detail.html'
     context_object_name = 'material'
-    queryset = Material.objects.select_related('subject__school_year', 'author', 'material_type')
+    queryset = Material.objects.select_related('subject__subject', 'subject__school_year', 'author', 'material_type')
 
     def get(self, request, *args, **kwargs):
         obj = self.get_object()
@@ -252,7 +252,7 @@ class BulkUploadView(LoginRequiredMixin, View):
     template_name = 'materials/bulk_upload.html'
 
     def get(self, request, year_slug, subject_slug):
-        subject = get_object_or_404(Subject, school_year__slug=year_slug, slug=subject_slug)
+        subject = get_object_or_404(SubjectYear, school_year__slug=year_slug, subject__slug=subject_slug)
         if not request.user.can_upload_to(subject):
             raise PermissionDenied
         from django.conf import settings as _s
@@ -264,7 +264,7 @@ class BulkUploadView(LoginRequiredMixin, View):
         })
 
     def post(self, request, year_slug, subject_slug):
-        subject = get_object_or_404(Subject, school_year__slug=year_slug, slug=subject_slug)
+        subject = get_object_or_404(SubjectYear, school_year__slug=year_slug, subject__slug=subject_slug)
         if not request.user.can_upload_to(subject):
             raise PermissionDenied
 
@@ -383,7 +383,7 @@ class VIPGrantView(LoginRequiredMixin, View):
     """Grant VIP rights to a student for a subject."""
 
     def post(self, request, subject_pk):
-        subject = get_object_or_404(Subject, pk=subject_pk)
+        subject = get_object_or_404(SubjectYear, pk=subject_pk)
 
         if not (request.user.is_teacher or request.user.is_admin_role):
             raise PermissionDenied
@@ -447,8 +447,8 @@ class SubjectZipDownloadView(LoginRequiredMixin, View):
 
     def get(self, request, year_slug, subject_slug):
         subject = get_object_or_404(
-            Subject,
-            slug=subject_slug,
+            SubjectYear,
+            subject__slug=subject_slug,
             school_year__slug=year_slug,
         )
         materials = (

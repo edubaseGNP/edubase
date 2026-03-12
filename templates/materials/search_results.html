@@ -32,9 +32,8 @@
         <option value="">{% trans "Všechny předměty" %}</option>
         {% for subject in all_subjects %}
           <option value="{{ subject.slug }}"
-                  data-year="{{ subject.school_year.slug }}"
                   {% if subject_filter == subject.slug %}selected{% endif %}>
-            {% if not year_filter %}{{ subject.school_year.name }} › {% endif %}{{ subject.name }}
+            {{ subject.name }}
           </option>
         {% endfor %}
       </select>
@@ -188,50 +187,5 @@
   {% endif %}
 
 </div>
-
-{% block extra_js %}
-<script>
-// Dynamic subject filtering based on selected year
-const yearSelect = document.getElementById('year-select');
-const subjectSelect = document.getElementById('subject-select');
-const allOptions = Array.from(subjectSelect.options);
-
-function filterSubjects() {
-  const selectedYear = yearSelect.value;
-  const currentSubject = subjectSelect.value;
-
-  // Remove all options except the first ("Všechny předměty")
-  while (subjectSelect.options.length > 1) {
-    subjectSelect.remove(1);
-  }
-
-  // Re-add matching options
-  allOptions.forEach(opt => {
-    if (!opt.value) return; // skip "all" option
-    if (!selectedYear || opt.dataset.year === selectedYear) {
-      const clone = opt.cloneNode(true);
-      // When a year is selected, strip the "Ročník › " prefix from label
-      if (selectedYear) {
-        clone.textContent = clone.textContent.replace(/^.* › /, '');
-      }
-      subjectSelect.appendChild(clone);
-    }
-  });
-
-  // Restore selection if still valid
-  subjectSelect.value = currentSubject;
-  if (!subjectSelect.value) subjectSelect.value = '';
-
-  // If year changed, reset subject
-  if (selectedYear !== '{{ year_filter }}') {
-    subjectSelect.value = '';
-  }
-}
-
-yearSelect.addEventListener('change', filterSubjects);
-// Run on load to set correct state
-filterSubjects();
-</script>
-{% endblock %}
 
 {% endblock %}

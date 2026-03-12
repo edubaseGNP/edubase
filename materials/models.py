@@ -40,10 +40,30 @@ class SchoolYear(models.Model):
 
 
 class Subject(models.Model):
-    """Předmět patřící do Ročníku – e.g. 'Český jazyk'."""
+    """Global subject definition – shared across school years."""
 
     name = models.CharField(max_length=200, verbose_name=_('Název'))
-    slug = models.SlugField(max_length=220, verbose_name=_('Slug'))
+    slug = models.SlugField(max_length=220, unique=True, verbose_name=_('Slug'))
+    description = models.TextField(blank=True, verbose_name=_('Popis'))
+
+    class Meta:
+        verbose_name = _('Předmět')
+        verbose_name_plural = _('Předměty')
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class SubjectYear(models.Model):
+    """A subject as offered in a specific school year."""
+
+    subject = models.ForeignKey(
+        Subject,
+        on_delete=models.CASCADE,
+        related_name='years',
+        verbose_name=_('Předmět'),
+    )
     school_year = models.ForeignKey(
         SchoolYear,
         on_delete=models.CASCADE,
@@ -57,17 +77,28 @@ class Subject(models.Model):
         limit_choices_to={'role': 'teacher'},
         verbose_name=_('Učitelé'),
     )
-    description = models.TextField(blank=True, verbose_name=_('Popis'))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_('Vytvořeno'))
 
     class Meta:
-        verbose_name = _('Předmět')
-        verbose_name_plural = _('Předměty')
-        ordering = ['school_year', 'name']
-        unique_together = [('school_year', 'slug')]
+        verbose_name = _('Předmět v ročníku')
+        verbose_name_plural = _('Předměty v ročnících')
+        ordering = ['school_year', 'subject__name']
+        unique_together = [('subject', 'school_year')]
 
     def __str__(self):
-        return f'{self.school_year} – {self.name}'
+        return f'{self.school_year} – {self.subject.name}'
+
+    # Proxy properties – templates using subject.name / subject.slug still work
+    @property
+    def name(self):
+        return self.subject.name
+
+    @property
+    def slug(self):
+        return self.subject.slug
+
+    @property
+    def description(self):
+        return self.subject.description
 
 
 class MaterialType(models.Model):
@@ -106,7 +137,7 @@ class Material(models.Model):
 
     title = models.CharField(max_length=300, verbose_name=_('Název'))
     subject = models.ForeignKey(
-        Subject,
+        SubjectYear,
         on_delete=models.CASCADE,
         related_name='materials',
         verbose_name=_('Předmět'),
@@ -270,7 +301,7 @@ class SubjectVIP(models.Model):
         verbose_name=_('Student'),
     )
     subject = models.ForeignKey(
-        Subject,
+        SubjectYear,
         on_delete=models.CASCADE,
         related_name='vip_users',
         verbose_name=_('Předmět'),
