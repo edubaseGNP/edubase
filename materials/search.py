@@ -141,8 +141,8 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
         if query:
             enriched = []
             for mat in ctx['object_list']:
-                mat._hit_count = _hit_count(mat, query)
-                mat._excerpt = _make_excerpt(mat.extracted_text or mat.description, query)
+                mat.hit_count = _hit_count(mat, query)
+                mat.excerpt = _make_excerpt(mat.extracted_text or mat.description, query)
                 enriched.append(mat)
             ctx['object_list'] = enriched
 

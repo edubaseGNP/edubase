@@ -4,6 +4,7 @@ from datetime import timedelta
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
+from django.db.models import Count, Sum
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
@@ -91,6 +92,54 @@ def subject_preferences(request):
         'school_years': school_years,
         'current_ids': current_ids,
         'max_favorites': MAX_FAVORITE_SUBJECTS,
+    })
+
+
+@login_required
+def profile(request):
+    """User profile page with stats and edit form."""
+    from materials.models import Material
+
+    user = request.user
+
+    if request.method == 'POST':
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        privacy_level = request.POST.get('privacy_level', user.privacy_level)
+        enrollment_year = request.POST.get('enrollment_year', '').strip()
+
+        user.first_name = first_name
+        user.last_name = last_name
+        valid_levels = [pl[0] for pl in user.PrivacyLevel.choices]
+        if privacy_level in valid_levels:
+            user.privacy_level = privacy_level
+        if enrollment_year.isdigit():
+            user.enrollment_year = int(enrollment_year)
+        elif not enrollment_year:
+            user.enrollment_year = None
+        user.save(update_fields=['first_name', 'last_name', 'privacy_level', 'enrollment_year'])
+        messages.success(request, _('Profil byl uložen.'))
+        return redirect('core:profile')
+
+    my_materials = Material.objects.filter(author=user, is_published=True)
+    agg = my_materials.aggregate(
+        total_downloads=Sum('download_count'),
+        total_likes=Count('likes', distinct=True),
+    )
+    recent_materials = (
+        my_materials
+        .select_related('subject__school_year', 'material_type')
+        .order_by('-created_at')[:10]
+    )
+    favorite_subjects = user.favorite_subjects.select_related('school_year').all()
+
+    return render(request, 'core/profile.html', {
+        'profile_user': user,
+        'total_uploads': my_materials.count(),
+        'total_downloads': agg['total_downloads'] or 0,
+        'total_likes': agg['total_likes'] or 0,
+        'recent_materials': recent_materials,
+        'favorite_subjects': favorite_subjects,
     })
 
 

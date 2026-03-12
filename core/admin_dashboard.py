@@ -119,4 +119,42 @@ def dashboard_callback(request, context):
         .order_by('-timestamp')[:20]
     )
 
+    # ------------------------------------------------------------------
+    # Today's activity snapshot
+    # ------------------------------------------------------------------
+    today_start = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    context['today_activity'] = {
+        'logins': AuditLog.objects.filter(action=AuditLog.Action.LOGIN, timestamp__gte=today_start).count(),
+        'uploads': AuditLog.objects.filter(action=AuditLog.Action.UPLOAD, timestamp__gte=today_start).count(),
+        'downloads': AuditLog.objects.filter(action=AuditLog.Action.DOWNLOAD, timestamp__gte=today_start).count(),
+        'registrations': AuditLog.objects.filter(action=AuditLog.Action.REGISTER, timestamp__gte=today_start).count(),
+    }
+
+    # ------------------------------------------------------------------
+    # Notifications stats
+    # ------------------------------------------------------------------
+    from core.models import Notification
+    context['notifications_stats'] = {
+        'total_unread': Notification.objects.filter(is_read=False).count(),
+        'sent_today': Notification.objects.filter(created_at__gte=today_start).count(),
+        'total': Notification.objects.count(),
+    }
+
+    # ------------------------------------------------------------------
+    # Search quality stats (last 7 days)
+    # ------------------------------------------------------------------
+    from django.db.models import Avg
+    week_ago = timezone.now() - timedelta(days=7)
+    search_week = SearchLog.objects.filter(timestamp__gte=week_ago)
+    total_searches = search_week.count()
+    zero_results = search_week.filter(results_count=0).count()
+    with_clicks = search_week.exclude(clicked_result_id=None).count()
+    avg_duration = search_week.exclude(duration_ms=None).aggregate(a=Avg('duration_ms'))['a']
+    context['search_quality'] = {
+        'total': total_searches,
+        'zero_rate': round(zero_results / total_searches * 100, 1) if total_searches else 0,
+        'click_rate': round(with_clicks / total_searches * 100, 1) if total_searches else 0,
+        'avg_ms': round(avg_duration) if avg_duration else None,
+    }
+
     return context

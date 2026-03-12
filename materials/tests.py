@@ -1,5 +1,6 @@
 """
-Tests for materials app – download counter, likes, comments, bulk upload, versioning.
+Tests for materials app – download counter, likes, comments, bulk upload, versioning,
+search (deduplication, hit_count, excerpt), SubjectZip.
 """
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -7,7 +8,7 @@ from django.test import Client, TestCase
 from django.urls import reverse
 
 from core.models import SiteConfig
-from .models import Comment, Material, MaterialLike, MaterialType, SchoolYear, Subject
+from .models import Comment, Material, MaterialLike, MaterialType, SchoolYear, SearchLog, Subject
 
 User = get_user_model()
 
@@ -207,3 +208,103 @@ class MaterialDetailContextTest(MaterialFixtureMixin, TestCase):
         self.assertEqual(len(r.context['comments']), 1)
         self.assertEqual(r.context['like_count'], 1)
         self.assertTrue(r.context['user_liked'])
+
+
+class SearchTest(MaterialFixtureMixin, TestCase):
+    """Tests for MaterialSearchView: logging, deduplication, hit_count, excerpt."""
+
+    def setUp(self):
+        self.c = Client()
+        self.c.force_login(self.student)
+        self.url = reverse('materials:search')
+        # Give the material some OCR text
+        Material.objects.filter(pk=self.material.pk).update(
+            title='Kvadratické rovnice',
+            description='Cvičení na kvadratické rovnice',
+            extracted_text='kvadratické kvadratické rovnice jsou základem algebry',
+            ocr_processed=True,
+        )
+        self.material.refresh_from_db()
+
+    def test_search_returns_result(self):
+        r = self.c.get(self.url, {'q': 'kvadratické'})
+        self.assertEqual(r.status_code, 200)
+        self.assertGreater(len(r.context['object_list']), 0)
+
+    def test_search_logs_query(self):
+        before = SearchLog.objects.count()
+        self.c.get(self.url, {'q': 'rovnice'})
+        self.assertEqual(SearchLog.objects.count(), before + 1)
+        log = SearchLog.objects.order_by('-timestamp').first()
+        self.assertEqual(log.query, 'rovnice')
+        self.assertGreater(log.results_count, 0)
+
+    def test_search_deduplication_within_cooldown(self):
+        """Same query from same user within 5 min should not create duplicate log."""
+        self.c.get(self.url, {'q': 'algebra'})
+        count_after_first = SearchLog.objects.filter(query__iexact='algebra').count()
+        self.c.get(self.url, {'q': 'algebra'})
+        count_after_second = SearchLog.objects.filter(query__iexact='algebra').count()
+        self.assertEqual(count_after_first, count_after_second)
+
+    def test_search_logs_duration_ms(self):
+        self.c.get(self.url, {'q': 'rovnice'})
+        log = SearchLog.objects.filter(query='rovnice').order_by('-timestamp').first()
+        self.assertIsNotNone(log.duration_ms)
+        self.assertGreaterEqual(log.duration_ms, 0)
+
+    def test_hit_count_annotated(self):
+        r = self.c.get(self.url, {'q': 'kvadratické'})
+        results = list(r.context['object_list'])
+        self.assertTrue(any(getattr(m, 'hit_count', 0) >= 2 for m in results))
+
+    def test_excerpt_contains_mark(self):
+        r = self.c.get(self.url, {'q': 'kvadratické'})
+        results = list(r.context['object_list'])
+        excerpts = [str(getattr(m, 'excerpt', '')) for m in results]
+        self.assertTrue(any('<mark' in e for e in excerpts))
+
+    def test_short_query_returns_no_results(self):
+        r = self.c.get(self.url, {'q': 'x'})
+        self.assertEqual(len(r.context['object_list']), 0)
+
+    def test_trending_shown_when_no_query(self):
+        # Seed some search logs
+        SearchLog.objects.create(query='fyzika', user=self.student, results_count=3)
+        r = self.c.get(self.url)
+        self.assertIn('trending_searches', r.context)
+
+    def test_search_requires_login(self):
+        r = Client().get(self.url, {'q': 'test'})
+        self.assertEqual(r.status_code, 302)
+
+
+class ReadingTimeTest(MaterialFixtureMixin, TestCase):
+    def test_reading_time_none_when_no_text(self):
+        self.material.extracted_text = ''
+        self.assertIsNone(self.material.reading_time)
+
+    def test_reading_time_minimum_one_minute(self):
+        self.material.extracted_text = 'slovo ' * 10  # 10 words
+        self.assertEqual(self.material.reading_time, 1)
+
+    def test_reading_time_calculation(self):
+        self.material.extracted_text = 'slovo ' * 400  # 400 words → 2 min
+        self.assertEqual(self.material.reading_time, 2)
+
+
+class SubjectZipTest(MaterialFixtureMixin, TestCase):
+    def test_zip_download_returns_zip(self):
+        c = Client()
+        c.force_login(self.student)
+        url = reverse('materials:subject_zip',
+                      kwargs={'year_slug': self.year.slug, 'subject_slug': self.subject.slug})
+        r = c.get(url)
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r['Content-Type'], 'application/zip')
+
+    def test_zip_requires_login(self):
+        url = reverse('materials:subject_zip',
+                      kwargs={'year_slug': self.year.slug, 'subject_slug': self.subject.slug})
+        r = Client().get(url)
+        self.assertEqual(r.status_code, 302)

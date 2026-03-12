@@ -42,6 +42,47 @@
   </div>
   {% endif %}
 
+  <!-- Today's activity + notifications + search quality -->
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;margin-bottom:2rem;">
+
+    {% if today_activity %}
+    <!-- Today's logins -->
+    <div class="stat-card" style="border-left:3px solid #3b82f6;">
+      <p style="font-size:0.7rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">{% trans "Dnes přihlášení" %}</p>
+      <p style="font-size:2rem;font-weight:700;color:#1d4ed8;line-height:1.1;margin-top:0.25rem;">{{ today_activity.logins }}</p>
+      <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.25rem;">+{{ today_activity.registrations }} {% trans "nových účtů" %}</p>
+    </div>
+    <!-- Today's uploads -->
+    <div class="stat-card" style="border-left:3px solid #22c55e;">
+      <p style="font-size:0.7rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">{% trans "Dnes nahráno" %}</p>
+      <p style="font-size:2rem;font-weight:700;color:#15803d;line-height:1.1;margin-top:0.25rem;">{{ today_activity.uploads }}</p>
+      <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.25rem;">{{ today_activity.downloads }} {% trans "stažení" %}</p>
+    </div>
+    {% endif %}
+
+    {% if notifications_stats %}
+    <!-- Notifications -->
+    <div class="stat-card" style="border-left:3px solid #f59e0b;">
+      <p style="font-size:0.7rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">{% trans "Notifikace nepřečtené" %}</p>
+      <p style="font-size:2rem;font-weight:700;color:#d97706;line-height:1.1;margin-top:0.25rem;">{{ notifications_stats.total_unread }}</p>
+      <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.25rem;">{% trans "dnes odesláno" %} {{ notifications_stats.sent_today }}</p>
+    </div>
+    {% endif %}
+
+    {% if search_quality %}
+    <!-- Search quality -->
+    <div class="stat-card" style="border-left:3px solid #8b5cf6;">
+      <p style="font-size:0.7rem;color:#6b7280;font-weight:600;text-transform:uppercase;letter-spacing:.05em;">{% trans "Vyhledávání (7 dní)" %}</p>
+      <p style="font-size:2rem;font-weight:700;color:#6d28d9;line-height:1.1;margin-top:0.25rem;">{{ search_quality.total }}</p>
+      <p style="font-size:0.75rem;color:#9ca3af;margin-top:0.25rem;">
+        {{ search_quality.zero_rate }}% {% trans "bez výsledků" %}
+        {% if search_quality.avg_ms %} · {{ search_quality.avg_ms }} ms{% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+  </div>
+
   <!-- Charts row -->
   <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
 

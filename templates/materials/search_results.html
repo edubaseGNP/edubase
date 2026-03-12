@@ -107,10 +107,10 @@
                   <h3 class="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
                     {{ mat.title }}
                   </h3>
-                  {% if mat._hit_count > 1 %}
+                  {% if mat.hit_count > 1 %}
                     <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-medium"
                           title="Počet výskytů hledaného výrazu">
-                      {{ mat._hit_count }}× výskyt
+                      {{ mat.hit_count }}× výskyt
                     </span>
                   {% endif %}
                   {% if mat.reading_time %}
@@ -129,8 +129,8 @@
                   · {{ mat.created_at|date:"j. n. Y" }}
                   {% if mat.ocr_processed %}<span class="text-green-500 ml-1">✓ OCR</span>{% endif %}
                 </p>
-                {% if mat._excerpt %}
-                  <p class="text-sm text-gray-600 mt-1.5 leading-relaxed">{{ mat._excerpt }}</p>
+                {% if mat.excerpt %}
+                  <p class="text-sm text-gray-600 mt-1.5 leading-relaxed">{{ mat.excerpt }}</p>
                 {% elif mat.description %}
                   <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ mat.description }}</p>
                 {% endif %}

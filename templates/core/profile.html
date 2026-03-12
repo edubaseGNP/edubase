@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Můj profil" %} — EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">{% trans "Můj profil" %}</h1>
+
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Left column: stats + edit form -->
+    <div class="lg:col-span-1 space-y-4">
+
+      <!-- Avatar + identity -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 text-center">
+        <div class="w-16 h-16 rounded-full bg-primary-100 text-primary-700 text-2xl font-bold flex items-center justify-center mx-auto mb-3">
+          {{ profile_user.get_display_name|first|upper }}
+        </div>
+        <p class="font-semibold text-gray-900">{{ profile_user.get_display_name }}</p>
+        <p class="text-xs text-gray-400 mt-0.5">{{ profile_user.email }}</p>
+        <span class="inline-block mt-2 text-xs px-2 py-0.5 rounded-full
+          {% if profile_user.is_admin_role %}bg-red-100 text-red-700
+          {% elif profile_user.is_teacher %}bg-yellow-100 text-yellow-700
+          {% else %}bg-blue-100 text-blue-700{% endif %}">
+          {{ profile_user.get_role_display }}
+        </span>
+      </div>
+
+      <!-- Stats -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">{% trans "Moje statistiky" %}</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">{% trans "Nahraných materiálů" %}</span>
+            <span class="font-bold text-gray-900">{{ total_uploads }}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">{% trans "Celkem stažení" %}</span>
+            <span class="font-bold text-blue-600">{{ total_downloads }}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">{% trans "Líbí se mi" %}</span>
+            <span class="font-bold text-red-500">{{ total_likes }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit form -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-4">{% trans "Upravit profil" %}</h2>
+        <form method="post" class="space-y-3">
+          {% csrf_token %}
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Jméno" %}</label>
+            <input type="text" name="first_name" value="{{ profile_user.first_name }}"
+                   class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Příjmení" %}</label>
+            <input type="text" name="last_name" value="{{ profile_user.last_name }}"
+                   class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Zobrazení identity" %}</label>
+            <select name="privacy_level"
+                    class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white">
+              {% for val, label in profile_user.PrivacyLevel.choices %}
+                <option value="{{ val }}" {% if profile_user.privacy_level == val %}selected{% endif %}>
+                  {{ label }}
+                </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">{% trans "Rok nástupu" %}</label>
+            <input type="number" name="enrollment_year"
+                   value="{% if profile_user.enrollment_year %}{{ profile_user.enrollment_year }}{% endif %}"
+                   min="2000" max="2099" placeholder="např. 2022"
+                   class="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-400">
+          </div>
+          <button type="submit" class="w-full btn-primary text-sm py-2">
+            {% trans "Uložit" %}
+          </button>
+        </form>
+      </div>
+
+    </div>
+
+    <!-- Right column: favorites + recent materials -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- Favorite subjects -->
+      {% if favorite_subjects %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-semibold text-gray-700">{% trans "Oblíbené předměty" %}</h2>
+          <a href="{% url 'core:subject_preferences' %}" class="text-xs text-primary-600 hover:underline">
+            {% trans "Upravit" %}
+          </a>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          {% for subject in favorite_subjects %}
+            <a href="{% url 'materials:subject_detail' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
+               class="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg border border-primary-200 bg-primary-50 text-primary-700 hover:bg-primary-100 transition-colors">
+              📚 {{ subject.name }}
+              <span class="text-xs text-primary-400">{{ subject.school_year.name }}</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% else %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-2">{% trans "Oblíbené předměty" %}</h2>
+        <p class="text-sm text-gray-400">
+          {% trans "Zatím žádné." %}
+          <a href="{% url 'core:subject_preferences' %}" class="text-primary-600 hover:underline ml-1">{% trans "Vybrat předměty →" %}</a>
+        </p>
+      </div>
+      {% endif %}
+
+      <!-- My recent materials -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">
+          {% trans "Moje materiály" %}
+          {% if total_uploads %}
+            <span class="text-gray-400 font-normal">({{ total_uploads }})</span>
+          {% endif %}
+        </h2>
+        {% if recent_materials %}
+          <div class="space-y-2">
+            {% for mat in recent_materials %}
+              <div class="flex items-center justify-between gap-3 py-1.5 border-b border-gray-50 last:border-0">
+                <div class="flex items-center gap-2 min-w-0">
+                  <span class="text-lg flex-shrink-0">{% if mat.is_pdf %}📄{% else %}🖼️{% endif %}</span>
+                  <div class="min-w-0">
+                    <a href="{% url 'materials:material_detail' pk=mat.pk %}"
+                       class="text-sm font-medium text-gray-800 hover:text-primary-600 truncate block">
+                      {{ mat.title }}
+                    </a>
+                    <p class="text-xs text-gray-400 truncate">
+                      {{ mat.subject.school_year.name }} › {{ mat.subject.name }} · {{ mat.material_type.name }}
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-3 flex-shrink-0 text-xs text-gray-400">
+                  <span title="{% trans 'Stažení' %}">⬇ {{ mat.download_count }}</span>
+                  <span>{{ mat.created_at|date:"j. n." }}</span>
+                </div>
+              </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-sm text-gray-400">{% trans "Zatím jste nenahrali žádné materiály." %}</p>
+        {% endif %}
+      </div>
+
+    </div>
+  </div>
+</div>
+{% endblock %}
