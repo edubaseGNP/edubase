@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Chyba přihlášení" %} – EduBase{% endblock %}
+
+{% block content %}
+<div class="min-h-[60vh] flex items-center justify-center px-4">
+  <div class="card max-w-sm w-full text-center">
+    <div class="text-4xl mb-4">⚠️</div>
+    <h2 class="text-xl font-semibold text-gray-900 mb-2">{% trans "Přihlášení selhalo" %}</h2>
+    <p class="text-sm text-gray-500 mb-6">
+      {% trans "Nepodařilo se vás přihlásit. Ujistěte se, že používáte školní Google účet." %}
+    </p>
+    <a href="{% url 'account_login' %}" class="btn-primary w-full justify-center">
+      {% trans "Zkusit znovu" %}
+    </a>
+  </div>
+</div>
+{% endblock %}

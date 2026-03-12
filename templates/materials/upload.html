@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Nahrát materiál" %} – EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-10">
+  <div class="card">
+    <h1 class="text-xl font-bold text-gray-900 mb-6">
+      {% trans "Nahrát nový materiál" %}
+      {% if subject %}<span class="text-gray-400 font-normal">– {{ subject }}</span>{% endif %}
+    </h1>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-5">
+      {% csrf_token %}
+
+      {% for field in form %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+            {{ field.label }}{% if field.field.required %} <span class="text-red-500">*</span>{% endif %}
+          </label>
+          {{ field }}
+          {% if field.errors %}
+            {% for error in field.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+            {% endfor %}
+          {% endif %}
+        </div>
+      {% endfor %}
+
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="btn-primary">{% trans "Nahrát" %}</button>
+        <a href="{{ request.META.HTTP_REFERER|default:'/' }}" class="btn-secondary">{% trans "Zrušit" %}</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

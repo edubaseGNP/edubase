@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load i18n edubase_tags %}
+
+{% block title %}EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Header row -->
+  <div class="flex items-center justify-between mb-8">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">
+        {% trans "Dobrý den" %}, {{ request.user.get_display_name }}
+      </h1>
+      <p class="text-sm text-gray-500 mt-0.5">{% trans "Vaše přehledová plocha" %}</p>
+    </div>
+    <div class="flex gap-3">
+      {% if request.user.is_admin_role %}
+        <a href="/admin/" class="btn-secondary text-sm">
+          ⚙ {% trans "Administrace" %}
+        </a>
+      {% else %}
+        <a href="{% url 'core:subject_preferences' %}" class="btn-secondary text-sm">
+          ⚙ {% trans "Předměty" %}
+        </a>
+      {% endif %}
+      <a href="{% url 'materials:school_year_list' %}" class="btn-primary text-sm">
+        {% trans "Všechny materiály" %}
+      </a>
+    </div>
+  </div>
+
+  {% if admin_stats %}
+  <!-- Admin stats dashboard -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <a href="/admin/users/user/" class="card hover:shadow-md transition-shadow text-center group">
+      <div class="text-3xl font-bold text-blue-600 group-hover:text-blue-700">{{ admin_stats.users }}</div>
+      <div class="text-sm text-gray-500 mt-1">{% trans "Uživatelé" %}</div>
+    </a>
+    <a href="/admin/materials/material/" class="card hover:shadow-md transition-shadow text-center group">
+      <div class="text-3xl font-bold text-green-600 group-hover:text-green-700">{{ admin_stats.materials }}</div>
+      <div class="text-sm text-gray-500 mt-1">{% trans "Materiály" %}</div>
+    </a>
+    <a href="/admin/materials/subject/" class="card hover:shadow-md transition-shadow text-center group">
+      <div class="text-3xl font-bold text-purple-600 group-hover:text-purple-700">{{ admin_stats.subjects }}</div>
+      <div class="text-sm text-gray-500 mt-1">{% trans "Předměty" %}</div>
+    </a>
+    <a href="/admin/materials/schoolyear/" class="card hover:shadow-md transition-shadow text-center group">
+      <div class="text-3xl font-bold text-orange-500 group-hover:text-orange-600">{{ admin_stats.school_years }}</div>
+      <div class="text-sm text-gray-500 mt-1">{% trans "Aktivní ročníky" %}</div>
+    </a>
+  </div>
+
+  <!-- Recent audit log -->
+  <div class="card mb-8">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">{% trans "Poslední aktivita" %}</h2>
+      <a href="/admin/core/auditlog/" class="text-xs text-blue-600 hover:underline">{% trans "Zobrazit vše →" %}</a>
+    </div>
+    {% if recent_logs %}
+      <ul class="divide-y divide-gray-100">
+        {% for log in recent_logs %}
+          <li class="flex items-center gap-3 py-2 text-sm">
+            <span class="text-gray-400 text-xs w-32 flex-shrink-0">{{ log.timestamp|date:"j.n. H:i" }}</span>
+            <span class="font-medium text-gray-700 truncate max-w-[120px]">{{ log.user|default:"–" }}</span>
+            <span class="px-2 py-0.5 rounded text-xs
+              {% if log.action == 'create' %}bg-green-100 text-green-700
+              {% elif log.action == 'delete' %}bg-red-100 text-red-700
+              {% elif log.action == 'upload' %}bg-blue-100 text-blue-700
+              {% else %}bg-gray-100 text-gray-600{% endif %}">
+              {{ log.get_action_display }}
+            </span>
+            <span class="text-gray-500 truncate flex-1">{{ log.description|truncatechars:60 }}</span>
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-sm text-gray-400 italic">{% trans "Zatím žádná aktivita." %}</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if has_favorites %}
+    <!-- Subject blocks -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {% for block in subject_blocks %}
+        <div class="card hover:shadow-md transition-shadow">
+          <!-- Subject header -->
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <p class="text-xs text-gray-400 uppercase tracking-wide">{{ block.subject.school_year.name }}</p>
+              <a href="{% url 'materials:subject_detail' year_slug=block.subject.school_year.slug subject_slug=block.subject.slug %}"
+                 class="text-base font-semibold text-gray-900 hover:text-primary-600 transition-colors">
+                {{ block.subject.name }}
+              </a>
+            </div>
+            {% if request.user|can_upload_to:block.subject %}
+              <a href="{% url 'materials:upload' year_slug=block.subject.school_year.slug subject_slug=block.subject.slug %}"
+                 class="text-xs text-primary-600 hover:text-primary-800 font-medium">+ {% trans "Nahrát" %}</a>
+            {% endif %}
+          </div>
+
+          <!-- Recent materials -->
+          {% if block.recent %}
+            <ul class="space-y-2">
+              {% for mat in block.recent %}
+                <li>
+                  <a href="{% url 'materials:material_detail' pk=mat.pk %}"
+                     class="flex items-center gap-3 p-2 rounded-lg hover:bg-gray-50 transition-colors group">
+                    <span class="text-xl flex-shrink-0">{% if mat.is_pdf %}📄{% else %}🖼️{% endif %}</span>
+                    <div class="min-w-0 flex-1">
+                      <p class="text-sm font-medium text-gray-800 truncate group-hover:text-primary-600">{{ mat.title }}</p>
+                      <p class="text-xs text-gray-400">
+                        {{ mat.material_type.name }} · {{ mat.created_at|date:"j. n. Y" }}
+                        {% if mat.ocr_processed %}<span class="text-green-500">✓</span>{% endif %}
+                      </p>
+                    </div>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+            <a href="{% url 'materials:subject_detail' year_slug=block.subject.school_year.slug subject_slug=block.subject.slug %}"
+               class="mt-3 block text-xs text-primary-600 hover:underline">
+              {% trans "Zobrazit vše →" %}
+            </a>
+          {% else %}
+            <p class="text-sm text-gray-400 italic">{% trans "Zatím žádné materiály." %}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <!-- No favorites yet -->
+    <div class="card max-w-lg mx-auto text-center py-12">
+      <div class="text-5xl mb-4">📌</div>
+      <h2 class="text-lg font-semibold text-gray-800">{% trans "Vyberte si své předměty" %}</h2>
+      <p class="text-sm text-gray-500 mt-2 mb-6">
+        {% blocktrans with max=max_favorites %}
+          Přidejte si až {{ max }} oblíbených předmětů a uvidíte jejich nejnovější materiály přímo tady.
+        {% endblocktrans %}
+      </p>
+      <a href="{% url 'core:subject_preferences' %}" class="btn-primary">
+        {% trans "Vybrat předměty" %}
+      </a>
+    </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Oblíbené předměty" %} – EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">{% trans "Oblíbené předměty" %}</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      {% blocktrans with max=max_favorites %}
+        Vyberte až {{ max }} předměty, které se zobrazí na vaší domovské stránce.
+      {% endblocktrans %}
+    </p>
+  </div>
+
+  <form method="post" id="pref-form">
+    {% csrf_token %}
+
+    {% for year in school_years %}
+      <div class="card mb-4">
+        <h2 class="font-semibold text-gray-700 mb-3">{{ year.name }}</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {% for subject in year.subjects.all %}
+            <label class="flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-colors
+                          {% if subject.id in current_ids %}border-primary-400 bg-primary-50{% else %}border-gray-200 hover:border-gray-300 hover:bg-gray-50{% endif %}"
+                   id="label-{{ subject.id }}">
+              <input type="checkbox"
+                     name="subjects"
+                     value="{{ subject.id }}"
+                     {% if subject.id in current_ids %}checked{% endif %}
+                     class="subject-checkbox accent-primary-600 rounded"
+                     onchange="updateLimit(this)">
+              <span class="text-sm font-medium text-gray-700">{{ subject.name }}</span>
+            </label>
+          {% empty %}
+            <p class="text-sm text-gray-400 col-span-full">{% trans "Žádné předměty." %}</p>
+          {% endfor %}
+        </div>
+      </div>
+    {% empty %}
+      <div class="card text-center text-gray-500">
+        <p>{% trans "Žádné aktivní ročníky. Požádejte administrátora." %}</p>
+      </div>
+    {% endfor %}
+
+    <div class="flex items-center gap-4 mt-4">
+      <button type="submit" class="btn-primary">{% trans "Uložit" %}</button>
+      <a href="{% url 'core:homepage' %}" class="btn-secondary">{% trans "Zrušit" %}</a>
+      <span id="counter-msg" class="text-sm text-gray-400 ml-auto">
+        <span id="selected-count">{{ current_ids|length }}</span> / {{ max_favorites }} {% trans "vybráno" %}
+      </span>
+    </div>
+  </form>
+</div>
+
+{% block extra_js %}
+<script>
+const MAX = {{ max_favorites }};
+
+function updateLimit(changed) {
+  const boxes = document.querySelectorAll('.subject-checkbox');
+  const checked = Array.from(boxes).filter(b => b.checked);
+  document.getElementById('selected-count').textContent = checked.length;
+
+  if (checked.length >= MAX) {
+    boxes.forEach(b => {
+      if (!b.checked) b.disabled = true;
+    });
+  } else {
+    boxes.forEach(b => b.disabled = false);
+  }
+
+  // Update label styling
+  boxes.forEach(b => {
+    const label = document.getElementById('label-' + b.value);
+    if (label) {
+      if (b.checked) {
+        label.classList.add('border-primary-400', 'bg-primary-50');
+        label.classList.remove('border-gray-200');
+      } else {
+        label.classList.remove('border-primary-400', 'bg-primary-50');
+        label.classList.add('border-gray-200');
+      }
+    }
+  });
+}
+
+// Init on page load
+document.querySelectorAll('.subject-checkbox').forEach(b => {
+  b.addEventListener('change', () => updateLimit(b));
+});
+updateLimit(null);
+</script>
+{% endblock %}
+{% endblock %}

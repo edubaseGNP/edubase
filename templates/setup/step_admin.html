@@ -1,0 +1,68 @@
+{% extends "setup/base_setup.html" %}
+{% load i18n %}
+
+{% block title %}Administrátorský účet – Instalace EduBase{% endblock %}
+
+{% block content %}
+
+  <div class="px-8 py-6 border-b border-gray-100 bg-gray-50">
+    <h2 class="text-xl font-bold text-gray-900">{% trans "Vytvořte administrátorský účet" %}</h2>
+    <p class="text-sm text-gray-500 mt-1">{% trans "Tento účet bude mít plný přístup k administraci systému." %}</p>
+  </div>
+
+  <form method="post" class="px-8 py-6 space-y-5">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+      </div>
+    {% endif %}
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.first_name.label }}</label>
+        {{ form.first_name }}
+        {% if form.first_name.errors %}<p class="mt-1 text-xs text-red-600">{{ form.first_name.errors.0 }}</p>{% endif %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.last_name.label }}</label>
+        {{ form.last_name }}
+        {% if form.last_name.errors %}<p class="mt-1 text-xs text-red-600">{{ form.last_name.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.email.label }}</label>
+      {{ form.email }}
+      {% if form.email.errors %}<p class="mt-1 text-xs text-red-600">{{ form.email.errors.0 }}</p>{% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.password1.label }}</label>
+        {{ form.password1 }}
+        {% if form.password1.errors %}<p class="mt-1 text-xs text-red-600">{{ form.password1.errors.0 }}</p>{% endif %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.password2.label }}</label>
+        {{ form.password2 }}
+        {% if form.password2.errors %}<p class="mt-1 text-xs text-red-600">{{ form.password2.errors.0 }}</p>{% endif %}
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between pt-2">
+      <a href="{% url 'setup:school' %}" class="text-sm text-gray-500 hover:text-gray-700">
+        &larr; {% trans "Zpět" %}
+      </a>
+      <button type="submit"
+              class="inline-flex items-center px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-lg shadow transition">
+        {% trans "Dokončit instalaci" %}
+        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+        </svg>
+      </button>
+    </div>
+  </form>
+
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "setup/base_setup.html" %}
+{% load i18n %}
+
+{% block title %}Nastavení školy – Instalace EduBase{% endblock %}
+
+{% block content %}
+
+  <div class="px-8 py-6 border-b border-gray-100 bg-gray-50">
+    <h2 class="text-xl font-bold text-gray-900">{% trans "Nastavení školy a Google OAuth" %}</h2>
+    <p class="text-sm text-gray-500 mt-1">
+      {% trans "Vyplňte název školy a přihlašovací údaje Google OAuth. Ty získáte v" %}
+      <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener"
+         class="text-blue-600 hover:underline">Google Cloud Console</a>.
+    </p>
+  </div>
+
+  <form method="post" class="px-8 py-6 space-y-5">
+    {% csrf_token %}
+
+    {% if form.non_field_errors %}
+      <div class="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        {{ form.non_field_errors }}
+      </div>
+    {% endif %}
+
+    <!-- School name + domain side-by-side on md+ -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.school_name.label }}</label>
+        {{ form.school_name }}
+        {% if form.school_name.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.school_name.errors.0 }}</p>
+        {% endif %}
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.school_domain.label }}</label>
+        {{ form.school_domain }}
+        {% if form.school_domain.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.school_domain.errors.0 }}</p>
+        {% endif %}
+        {% if form.school_domain.help_text %}
+          <p class="mt-1 text-xs text-gray-400">{{ form.school_domain.help_text }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Google credentials -->
+    <div class="p-5 bg-blue-50 rounded-xl border border-blue-200 space-y-4">
+      <div class="flex items-center space-x-2 mb-1">
+        <svg class="w-5 h-5 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+        </svg>
+        <span class="text-sm font-semibold text-blue-800">{% trans "Google OAuth přihlašovací údaje" %}</span>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.google_client_id.label }}</label>
+        {{ form.google_client_id }}
+        {% if form.google_client_id.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.google_client_id.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.google_client_secret.label }}</label>
+        {{ form.google_client_secret }}
+        {% if form.google_client_secret.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.google_client_secret.errors.0 }}</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">{{ form.google_allowed_domain.label }}</label>
+        {{ form.google_allowed_domain }}
+        {% if form.google_allowed_domain.errors %}
+          <p class="mt-1 text-xs text-red-600">{{ form.google_allowed_domain.errors.0 }}</p>
+        {% endif %}
+        {% if form.google_allowed_domain.help_text %}
+          <p class="mt-1 text-xs text-gray-400">{{ form.google_allowed_domain.help_text }}</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between pt-2">
+      <a href="{% url 'setup:welcome' %}" class="text-sm text-gray-500 hover:text-gray-700">
+        &larr; {% trans "Zpět" %}
+      </a>
+      <button type="submit"
+              class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow transition">
+        {% trans "Pokračovat" %}
+        <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </button>
+    </div>
+  </form>
+
+{% endblock %}

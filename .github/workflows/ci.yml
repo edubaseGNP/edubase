@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: edubase_test
+          POSTGRES_USER: edubase
+          POSTGRES_PASSWORD: edubase_secret
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      SECRET_KEY: ci-test-secret-key
+      DEBUG: "True"
+      DB_NAME: edubase_test
+      DB_USER: edubase
+      DB_PASSWORD: edubase_secret
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DJANGO_SETTINGS_MODULE: edubase.settings.dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt flake8
+
+      - name: Lint (flake8)
+        run: flake8 . --max-line-length=120 --exclude=migrations,__pycache__,.venv
+
+      - name: Django system check
+        run: python manage.py check
+
+      - name: Run migrations
+        run: python manage.py migrate
+
+      - name: Run tests
+        run: python manage.py test

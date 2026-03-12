@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}EduBase – {% trans "Školní databáze materiálů" %}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+  <h1 class="text-5xl font-extrabold text-gray-900">
+    <span class="text-primary-600">Edu</span>Base
+  </h1>
+  <p class="mt-5 text-xl text-gray-500 max-w-xl mx-auto">
+    {% trans "Sdílej a procházej učební materiály své školy. Rychle, přehledně, bezpečně." %}
+  </p>
+  <div class="mt-10">
+    <a href="{% url 'account_login' %}" class="btn-primary text-base px-8 py-3">
+      {% trans "Přihlásit se školním účtem Google" %}
+    </a>
+  </div>
+
+  <div class="mt-20 grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+    <div class="card">
+      <div class="text-3xl mb-3">📚</div>
+      <h3 class="font-semibold">{% trans "Strukturované materiály" %}</h3>
+      <p class="text-sm text-gray-500 mt-1">{% trans "Ročník → Předmět → Podklady, Testy, Otázky" %}</p>
+    </div>
+    <div class="card">
+      <div class="text-3xl mb-3">🔍</div>
+      <h3 class="font-semibold">{% trans "Fulltextové vyhledávání" %}</h3>
+      <p class="text-sm text-gray-500 mt-1">{% trans "Prohledává text extrahovaný z nahraných PDF a skenů" %}</p>
+    </div>
+    <div class="card">
+      <div class="text-3xl mb-3">🤖</div>
+      <h3 class="font-semibold">{% trans "AI připraveno (V5.0)" %}</h3>
+      <p class="text-sm text-gray-500 mt-1">{% trans "OCR základ pro budoucí generování testů z materiálů" %}</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

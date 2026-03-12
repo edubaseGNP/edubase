@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% if query %}{% blocktrans %}„{{ query }}" – Hledání{% endblocktrans %}{% else %}{% trans "Hledání" %}{% endif %} – EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+
+  <!-- Search form -->
+  <form method="get" action="{% url 'materials:search' %}" id="search-form">
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+
+      <!-- Query input -->
+      <input type="search" name="q" value="{{ query }}" autofocus
+             placeholder="{% trans 'Hledat v materiálech…' %}"
+             class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400">
+
+      <!-- Year filter -->
+      <select name="year" id="year-select"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white min-w-[150px]">
+        <option value="">{% trans "Všechny ročníky" %}</option>
+        {% for year in school_years %}
+          <option value="{{ year.slug }}" {% if year_filter == year.slug %}selected{% endif %}>
+            {{ year.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <!-- Subject filter (dynamically populated by JS) -->
+      <select name="subject" id="subject-select"
+              class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white min-w-[180px]">
+        <option value="">{% trans "Všechny předměty" %}</option>
+        {% for subject in all_subjects %}
+          <option value="{{ subject.slug }}"
+                  data-year="{{ subject.school_year.slug }}"
+                  {% if subject_filter == subject.slug %}selected{% endif %}>
+            {% if not year_filter %}{{ subject.school_year.name }} › {% endif %}{{ subject.name }}
+          </option>
+        {% endfor %}
+      </select>
+
+      <button type="submit" class="btn-primary whitespace-nowrap">{% trans "Hledat" %}</button>
+    </div>
+
+    <!-- Active filters summary -->
+    {% if year_filter or subject_filter %}
+      <div class="flex flex-wrap gap-2 mt-2">
+        {% if year_filter %}
+          {% for year in school_years %}{% if year.slug == year_filter %}
+            <span class="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 rounded-full px-2.5 py-0.5">
+              📅 {{ year.name }}
+              <a href="?q={{ query }}&subject={{ subject_filter }}" class="hover:text-red-500 font-bold ml-0.5">×</a>
+            </span>
+          {% endif %}{% endfor %}
+        {% endif %}
+        {% if subject_filter %}
+          {% for s in all_subjects %}{% if s.slug == subject_filter %}
+            <span class="inline-flex items-center gap-1 text-xs bg-primary-50 text-primary-700 border border-primary-200 rounded-full px-2.5 py-0.5">
+              📚 {{ s.name }}
+              <a href="?q={{ query }}&year={{ year_filter }}" class="hover:text-red-500 font-bold ml-0.5">×</a>
+            </span>
+          {% endif %}{% endfor %}
+        {% endif %}
+      </div>
+    {% endif %}
+  </form>
+
+  <!-- Results header -->
+  {% if query %}
+    <p class="text-sm text-gray-500 mb-4 mt-5">
+      {% if results %}
+        {% blocktrans count count=results|length %}
+          Nalezen {{ count }} výsledek pro „{{ query }}"
+        {% plural %}
+          Nalezeno {{ count }} výsledků pro „{{ query }}"
+        {% endblocktrans %}
+      {% else %}
+        {% blocktrans %}Žádné výsledky pro „{{ query }}"{% endblocktrans %}
+      {% endif %}
+    </p>
+  {% else %}
+    <div class="mt-5"></div>
+  {% endif %}
+
+  <!-- Results list -->
+  {% if results %}
+    <div class="space-y-3">
+      {% for mat in results %}
+        <div class="card hover:shadow-md transition-shadow">
+          <a href="{% url 'materials:material_detail' pk=mat.pk %}" class="group">
+            <div class="flex items-start gap-3">
+              <span class="text-2xl flex-shrink-0 mt-0.5">{% if mat.is_pdf %}📄{% else %}🖼️{% endif %}</span>
+              <div class="flex-1 min-w-0">
+                <h3 class="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                  {{ mat.title }}
+                </h3>
+                <p class="text-xs text-gray-400 mt-0.5">
+                  <a href="{% url 'materials:subject_detail' year_slug=mat.subject.school_year.slug subject_slug=mat.subject.slug %}"
+                     class="hover:underline" onclick="event.stopPropagation()">
+                    {{ mat.subject.school_year.name }} › {{ mat.subject.name }}
+                  </a>
+                  · {{ mat.material_type.name }}
+                  {% if mat.author %}· {{ mat.author.get_display_name }}{% endif %}
+                  · {{ mat.created_at|date:"j. n. Y" }}
+                  {% if mat.ocr_processed %}<span class="text-green-500 ml-1">✓ OCR</span>{% endif %}
+                </p>
+                {% if mat.description %}
+                  <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ mat.description }}</p>
+                {% endif %}
+                {% if mat.extracted_text %}
+                  <p class="text-xs text-gray-400 mt-1 line-clamp-2 italic">
+                    {{ mat.extracted_text|truncatechars:200 }}
+                  </p>
+                {% endif %}
+              </div>
+            </div>
+          </a>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+      <nav class="mt-6 flex justify-center gap-2">
+        {% if page_obj.has_previous %}
+          <a href="?q={{ query }}&year={{ year_filter }}&subject={{ subject_filter }}&page={{ page_obj.previous_page_number }}"
+             class="btn-secondary text-sm">← {% trans "Předchozí" %}</a>
+        {% endif %}
+        <span class="text-sm text-gray-500 self-center">
+          {% trans "Strana" %} {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+        </span>
+        {% if page_obj.has_next %}
+          <a href="?q={{ query }}&year={{ year_filter }}&subject={{ subject_filter }}&page={{ page_obj.next_page_number }}"
+             class="btn-secondary text-sm">{% trans "Další" %} →</a>
+        {% endif %}
+      </nav>
+    {% endif %}
+
+  {% elif query %}
+    <div class="card text-center py-12">
+      <p class="text-4xl mb-4">🔍</p>
+      <p class="text-gray-600 font-medium">{% trans "Nic nenalezeno" %}</p>
+      <p class="text-sm text-gray-400 mt-1">
+        {% trans "Zkuste jiný dotaz nebo odstraňte filtr." %}
+      </p>
+    </div>
+  {% else %}
+    <div class="card text-center py-12 text-gray-400">
+      <p class="text-4xl mb-4">🔍</p>
+      <p>{% trans "Zadejte hledaný výraz výše." %}</p>
+      {% if trending_searches %}
+      <div class="mt-6 text-left max-w-sm mx-auto">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">{% trans "Populární výrazy" %}</p>
+        <div class="flex flex-wrap gap-2">
+          {% for s in trending_searches %}
+            <a href="?q={{ s.query|urlencode }}"
+               class="inline-flex items-center gap-1 text-xs bg-gray-100 hover:bg-primary-50 hover:text-primary-700 text-gray-600 border border-gray-200 rounded-full px-3 py-1 transition-colors">
+              🔥 {{ s.query }}
+              <span class="text-gray-400">{{ s.cnt }}×</span>
+            </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+</div>
+
+{% block extra_js %}
+<script>
+// Dynamic subject filtering based on selected year
+const yearSelect = document.getElementById('year-select');
+const subjectSelect = document.getElementById('subject-select');
+const allOptions = Array.from(subjectSelect.options);
+
+function filterSubjects() {
+  const selectedYear = yearSelect.value;
+  const currentSubject = subjectSelect.value;
+
+  // Remove all options except the first ("Všechny předměty")
+  while (subjectSelect.options.length > 1) {
+    subjectSelect.remove(1);
+  }
+
+  // Re-add matching options
+  allOptions.forEach(opt => {
+    if (!opt.value) return; // skip "all" option
+    if (!selectedYear || opt.dataset.year === selectedYear) {
+      const clone = opt.cloneNode(true);
+      // When a year is selected, strip the "Ročník › " prefix from label
+      if (selectedYear) {
+        clone.textContent = clone.textContent.replace(/^.* › /, '');
+      }
+      subjectSelect.appendChild(clone);
+    }
+  });
+
+  // Restore selection if still valid
+  subjectSelect.value = currentSubject;
+  if (!subjectSelect.value) subjectSelect.value = '';
+
+  // If year changed, reset subject
+  if (selectedYear !== '{{ year_filter }}') {
+    subjectSelect.value = '';
+  }
+}
+
+yearSelect.addEventListener('change', filterSubjects);
+// Run on load to set correct state
+filterSubjects();
+</script>
+{% endblock %}
+
+{% endblock %}

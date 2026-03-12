@@ -1,0 +1,132 @@
+from django.conf import settings
+from django.contrib.contenttypes.fields import GenericForeignKey
+from django.contrib.contenttypes.models import ContentType
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class SiteConfig(models.Model):
+    """
+    Singleton model storing site-wide configuration set by the setup wizard.
+    Access via SiteConfig.get().
+    """
+
+    school_name = models.CharField(max_length=200, default='EduBase', verbose_name=_('Název školy'))
+    school_domain = models.CharField(max_length=100, default='localhost', verbose_name=_('Doménové jméno'))
+    google_allowed_domain = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_('Povolená Google doména'),
+        help_text=_('Např. skola.cz – ponechte prázdné pro povolení všech domén.'),
+    )
+    setup_complete = models.BooleanField(default=False, verbose_name=_('Nastavení dokončeno'))
+
+    # ---- Email / SMTP ----------------------------------------------------
+    email_notifications_enabled = models.BooleanField(
+        default=False,
+        verbose_name=_('Emailové notifikace zapnuty'),
+        help_text=_('Odesílat emaily učitelům při nahrání nového materiálu.'),
+    )
+    smtp_host = models.CharField(
+        max_length=200, blank=True, default='',
+        verbose_name=_('SMTP server'),
+        help_text=_('Např. smtp.gmail.com'),
+    )
+    smtp_port = models.PositiveSmallIntegerField(
+        default=587,
+        verbose_name=_('SMTP port'),
+    )
+    smtp_use_tls = models.BooleanField(default=True, verbose_name=_('Použít TLS'))
+    smtp_username = models.CharField(max_length=200, blank=True, default='', verbose_name=_('SMTP uživatel'))
+    smtp_password = models.CharField(max_length=200, blank=True, default='', verbose_name=_('SMTP heslo'))
+    default_from_email = models.EmailField(
+        blank=True, default='',
+        verbose_name=_('Odesílatel (From)'),
+        help_text=_('Např. edubase@skola.cz'),
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('Konfigurace webu')
+        verbose_name_plural = _('Konfigurace webu')
+
+    @classmethod
+    def get(cls):
+        """Return (or lazily create) the singleton instance."""
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return self.school_name
+
+
+class AuditLog(models.Model):
+    """
+    Immutable audit trail for all create/update/delete actions.
+    Populated via signals and view helpers in Krok 4.
+    """
+
+    class Action(models.TextChoices):
+        CREATE = 'create', _('Vytvoření')
+        UPDATE = 'update', _('Úprava')
+        DELETE = 'delete', _('Smazání')
+        VIP_GRANT = 'vip_grant', _('Udělení VIP')
+        VIP_REVOKE = 'vip_revoke', _('Odebrání VIP')
+        UPLOAD = 'upload', _('Nahrání souboru')
+        DOWNLOAD = 'download', _('Stažení')
+        LOGIN = 'login', _('Přihlášení')
+        LOGOUT = 'logout', _('Odhlášení')
+        REGISTER = 'register', _('Registrace')
+        COMMENT_ADD = 'comment_add', _('Přidání komentáře')
+        COMMENT_DELETE = 'comment_delete', _('Smazání komentáře')
+
+    class Level(models.TextChoices):
+        INFO = 'info', _('Info')
+        WARNING = 'warning', _('Varování')
+        ERROR = 'error', _('Chyba')
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        on_delete=models.SET_NULL,
+        related_name='audit_logs',
+        verbose_name=_('Uživatel'),
+    )
+    action = models.CharField(
+        max_length=20,
+        choices=Action.choices,
+        db_index=True,
+        verbose_name=_('Akce'),
+    )
+
+    # Generic relation – can point to any model
+    content_type = models.ForeignKey(
+        ContentType,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        verbose_name=_('Typ objektu'),
+    )
+    object_id = models.PositiveIntegerField(null=True, blank=True, verbose_name=_('ID objektu'))
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+    level = models.CharField(
+        max_length=10,
+        choices=Level.choices,
+        default=Level.INFO,
+        db_index=True,
+        verbose_name=_('Úroveň'),
+    )
+    description = models.TextField(blank=True, verbose_name=_('Popis'))
+    timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_('Čas'))
+    ip_address = models.GenericIPAddressField(null=True, blank=True, verbose_name=_('IP adresa'))
+
+    class Meta:
+        verbose_name = _('Záznam auditu')
+        verbose_name_plural = _('Záznamy auditu')
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f'[{self.timestamp:%Y-%m-%d %H:%M}] {self.user} – {self.action}'

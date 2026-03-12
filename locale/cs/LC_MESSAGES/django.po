@@ -1,0 +1,1219 @@
+# Czech translations for EduBase
+# Copyright (C) 2026
+msgid ""
+msgstr ""
+"Project-Id-Version: EduBase 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-03-12 13:49+0100\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : (n>=5 && "
+"n<=10) ? 2 : 3;\n"
+
+#: core/admin.py:39
+msgid "Škola"
+msgstr "Škola"
+
+#: core/admin.py:40
+msgid "Google OAuth"
+msgstr "Google OAuth"
+
+#: core/admin.py:41
+msgid "Emailové notifikace"
+msgstr "Emailové notifikace"
+
+#: core/admin.py:49
+msgid ""
+"Nastavte SMTP server pro odesílání emailů učitelům. Heslo je uloženo v "
+"čistém textu – doporučujeme App Password."
+msgstr ""
+"Nastavte SMTP server pro odesílání emailů učitelům. Heslo je uloženo v "
+"čistém textu – doporučujeme App Password."
+
+#: core/admin.py:53
+msgid "Stav"
+msgstr "Stav"
+
+#: core/admin.py:79 core/models.py:101 templates/admin/index.html:163
+msgid "Akce"
+msgstr "Akce"
+
+#: core/admin.py:89 core/models.py:120
+msgid "Úroveň"
+msgstr "Úroveň"
+
+#: core/admin.py:98
+msgid "Objekt"
+msgstr "Objekt"
+
+#: core/admin.py:112 core/models.py:122 materials/models.py:60
+#: materials/models.py:124 templates/admin/index.html:165
+msgid "Popis"
+msgstr "Popis"
+
+#: core/admin.py:121 materials/admin.py:143 materials/admin.py:202
+#: users/admin.py:77
+msgid "Exportovat jako CSV"
+msgstr "Exportovat jako CSV"
+
+#: core/admin_dashboard.py:31 templates/core/homepage.html:38
+#: users/models.py:53
+msgid "Uživatelé"
+msgstr "Uživatelé"
+
+#: core/admin_dashboard.py:32 materials/models.py:175 templates/base.html:26
+#: templates/core/homepage.html:42 templates/materials/material_detail.html:13
+#: templates/materials/school_year_list.html:4
+#: templates/materials/subject_detail.html:13
+msgid "Materiály"
+msgstr "Materiály"
+
+#: core/admin_dashboard.py:33 core/models.py:78
+msgid "Stažení"
+msgstr "Stažení"
+
+#: core/admin_dashboard.py:34 materials/models.py:246 materials/models.py:247
+msgid "Líbí se mi"
+msgstr "Líbí se mi"
+
+#: core/admin_dashboard.py:35 materials/models.py:221
+#: templates/materials/material_detail.html:112
+msgid "Komentáře"
+msgstr "Komentáře"
+
+#: core/admin_dashboard.py:82
+msgid "Studenti"
+msgstr "Studenti"
+
+#: core/admin_dashboard.py:82 materials/models.py:58
+msgid "Učitelé"
+msgstr "Učitelé"
+
+#: core/admin_dashboard.py:82
+msgid "Administrátoři"
+msgstr "Administrátoři"
+
+#: core/models.py:14 setup/forms.py:12
+msgid "Název školy"
+msgstr "Název školy"
+
+#: core/models.py:15 setup/forms.py:20
+msgid "Doménové jméno"
+msgstr "Doménové jméno"
+
+#: core/models.py:19
+msgid "Povolená Google doména"
+msgstr "Povolená Google doména"
+
+#: core/models.py:20
+msgid "Např. skola.cz – ponechte prázdné pro povolení všech domén."
+msgstr "Např. skola.cz – ponechte prázdné pro povolení všech domén."
+
+#: core/models.py:22
+msgid "Nastavení dokončeno"
+msgstr "Nastavení dokončeno"
+
+#: core/models.py:27
+msgid "Emailové notifikace zapnuty"
+msgstr "Emailové notifikace zapnuty"
+
+#: core/models.py:28
+msgid "Odesílat emaily učitelům při nahrání nového materiálu."
+msgstr "Odesílat emaily učitelům při nahrání nového materiálu."
+
+#: core/models.py:32
+msgid "SMTP server"
+msgstr "SMTP server"
+
+#: core/models.py:33
+msgid "Např. smtp.gmail.com"
+msgstr "Např. smtp.gmail.com"
+
+#: core/models.py:37
+msgid "SMTP port"
+msgstr "SMTP port"
+
+#: core/models.py:39
+msgid "Použít TLS"
+msgstr "Použít TLS"
+
+#: core/models.py:40
+msgid "SMTP uživatel"
+msgstr "SMTP uživatel"
+
+#: core/models.py:41
+msgid "SMTP heslo"
+msgstr "SMTP heslo"
+
+#: core/models.py:44
+msgid "Odesílatel (From)"
+msgstr "Odesílatel (From)"
+
+#: core/models.py:45
+msgid "Např. edubase@skola.cz"
+msgstr "Např. edubase@skola.cz"
+
+#: core/models.py:52 core/models.py:53
+msgid "Konfigurace webu"
+msgstr "Konfigurace webu"
+
+#: core/models.py:72
+msgid "Vytvoření"
+msgstr "Vytvoření"
+
+#: core/models.py:73
+msgid "Úprava"
+msgstr "Úprava"
+
+#: core/models.py:74
+msgid "Smazání"
+msgstr "Smazání"
+
+#: core/models.py:75
+msgid "Udělení VIP"
+msgstr "Udělení VIP"
+
+#: core/models.py:76
+msgid "Odebrání VIP"
+msgstr "Odebrání VIP"
+
+#: core/models.py:77
+msgid "Nahrání souboru"
+msgstr "Nahrání souboru"
+
+#: core/models.py:79 templates/account/login.html:4
+msgid "Přihlášení"
+msgstr "Přihlášení"
+
+#: core/models.py:80 templates/account/logout.html:4
+#: templates/account/logout.html:9
+msgid "Odhlášení"
+msgstr "Odhlášení"
+
+#: core/models.py:81
+msgid "Registrace"
+msgstr "Registrace"
+
+#: core/models.py:82
+msgid "Přidání komentáře"
+msgstr "Přidání komentáře"
+
+#: core/models.py:83
+msgid "Smazání komentáře"
+msgstr "Smazání komentáře"
+
+#: core/models.py:86
+msgid "Info"
+msgstr "Info"
+
+#: core/models.py:87
+msgid "Varování"
+msgstr "Varování"
+
+#: core/models.py:88
+msgid "Chyba"
+msgstr "Chyba"
+
+#: core/models.py:95 materials/models.py:241 materials/models.py:297
+#: templates/admin/index.html:164 users/models.py:52
+msgid "Uživatel"
+msgstr "Uživatel"
+
+#: core/models.py:110
+msgid "Typ objektu"
+msgstr "Typ objektu"
+
+#: core/models.py:112
+msgid "ID objektu"
+msgstr "ID objektu"
+
+#: core/models.py:123 materials/models.py:216 materials/models.py:302
+#: templates/admin/index.html:162
+msgid "Čas"
+msgstr "Čas"
+
+#: core/models.py:124
+msgid "IP adresa"
+msgstr "IP adresa"
+
+#: core/models.py:127
+msgid "Záznam auditu"
+msgstr "Záznam auditu"
+
+#: core/models.py:128
+msgid "Záznamy auditu"
+msgstr "Záznamy auditu"
+
+#: core/views.py:84
+msgid "Oblíbené předměty byly uloženy."
+msgstr "Oblíbené předměty byly uloženy."
+
+#: materials/admin.py:120
+msgid "Počet materiálů"
+msgstr "Počet materiálů"
+
+#: materials/admin.py:134
+msgid "Autor a čas"
+msgstr "Autor a čas"
+
+#: materials/admin.py:135
+msgid "AI / OCR"
+msgstr "AI / OCR"
+
+#: materials/admin.py:138
+msgid "Pole extrahovaný text je pouze pro čtení – vyplňuje se automaticky."
+msgstr "Pole extrahovaný text je pouze pro čtení – vyplňuje se automaticky."
+
+#: materials/admin.py:147 users/admin.py:81
+msgid "Exportovat jako Excel (.xlsx)"
+msgstr "Exportovat jako Excel (.xlsx)"
+
+#: materials/admin.py:175
+msgid "Výsledky"
+msgstr "Výsledky"
+
+#: materials/admin.py:179
+msgid "Bez výsledků"
+msgstr "Bez výsledků"
+
+#: materials/forms.py:17
+msgid "Název materiálu"
+msgstr "Název materiálu"
+
+#: materials/forms.py:18
+msgid "Volitelný popis"
+msgstr "Volitelný popis"
+
+#: materials/forms.py:48
+#, python-format
+msgid "Soubor je příliš velký. Maximální povolená velikost je %(max)d MB."
+msgstr "Soubor je příliš velký. Maximální povolená velikost je %(max)d MB."
+
+#: materials/forms.py:57
+msgid "Nepodporovaný formát souboru. Povolené: PDF, JPG, PNG, GIF, WEBP."
+msgstr "Nepodporovaný formát souboru. Povolené: PDF, JPG, PNG, GIF, WEBP."
+
+#: materials/models.py:21 materials/models.py:45 materials/models.py:76
+#: materials/models.py:92 materials/models.py:107
+#: templates/admin/index.html:117
+msgid "Název"
+msgstr "Název"
+
+#: materials/models.py:22 materials/models.py:46 materials/models.py:77
+#: materials/models.py:93
+msgid "Slug"
+msgstr "Slug"
+
+#: materials/models.py:23
+msgid "Aktivní"
+msgstr "Aktivní"
+
+#: materials/models.py:29
+msgid "Vytvořil"
+msgstr "Vytvořil"
+
+#: materials/models.py:31 materials/models.py:61
+msgid "Vytvořeno"
+msgstr "Vytvořeno"
+
+#: materials/models.py:34 materials/models.py:51
+msgid "Ročník"
+msgstr "Ročník"
+
+#: materials/models.py:35
+msgid "Ročníky"
+msgstr "Ročníky"
+
+#: materials/models.py:64 materials/models.py:112 materials/models.py:268
+#: templates/admin/index.html:118
+msgid "Předmět"
+msgstr "Předmět"
+
+#: materials/models.py:65 templates/core/homepage.html:24
+#: templates/core/homepage.html:46
+msgid "Předměty"
+msgstr "Předměty"
+
+#: materials/models.py:78
+msgid "Pořadí"
+msgstr "Pořadí"
+
+#: materials/models.py:81 templates/materials/bulk_upload.html:16
+msgid "Typ materiálu"
+msgstr "Typ materiálu"
+
+#: materials/models.py:82
+msgid "Typy materiálů"
+msgstr "Typy materiálů"
+
+#: materials/models.py:96
+msgid "Štítek"
+msgstr "Štítek"
+
+#: materials/models.py:97 materials/models.py:155
+msgid "Štítky"
+msgstr "Štítky"
+
+#: materials/models.py:118
+msgid "Typ"
+msgstr "Typ"
+
+#: materials/models.py:122
+msgid "Soubor"
+msgstr "Soubor"
+
+#: materials/models.py:132 materials/models.py:213
+#: templates/admin/index.html:119
+msgid "Autor"
+msgstr "Autor"
+
+#: materials/models.py:136
+msgid "Nahráno"
+msgstr "Nahráno"
+
+#: materials/models.py:137
+msgid "Naposledy upraveno"
+msgstr "Naposledy upraveno"
+
+#: materials/models.py:143
+msgid "Extrahovaný text"
+msgstr "Extrahovaný text"
+
+#: materials/models.py:144
+msgid ""
+"Automaticky vyplněno při nahrání. Slouží pro AI generování testů (V5.0)."
+msgstr ""
+"Automaticky vyplněno při nahrání. Slouží pro AI generování testů (V5.0)."
+
+#: materials/models.py:148
+msgid "OCR zpracováno"
+msgstr "OCR zpracováno"
+
+#: materials/models.py:158
+msgid "Zveřejněno"
+msgstr "Zveřejněno"
+
+#: materials/models.py:161 templates/materials/material_detail.html:31
+msgid "Počet stažení"
+msgstr "Počet stažení"
+
+#: materials/models.py:164
+msgid "Verze"
+msgstr "Verze"
+
+#: materials/models.py:170
+msgid "Původní materiál"
+msgstr "Původní materiál"
+
+#: materials/models.py:174 materials/models.py:206 materials/models.py:235
+msgid "Materiál"
+msgstr "Materiál"
+
+#: materials/models.py:215
+msgid "Text"
+msgstr "Text"
+
+#: materials/models.py:217
+msgid "Viditelný"
+msgstr "Viditelný"
+
+#: materials/models.py:220
+msgid "Komentář"
+msgstr "Komentář"
+
+#: materials/models.py:262 users/models.py:15
+msgid "Student"
+msgstr "Student"
+
+#: materials/models.py:275
+msgid "Udělil"
+msgstr "Udělil"
+
+#: materials/models.py:277
+msgid "Uděleno"
+msgstr "Uděleno"
+
+#: materials/models.py:280 materials/models.py:281
+msgid "VIP oprávnění"
+msgstr "VIP oprávnění"
+
+#: materials/models.py:291
+msgid "Dotaz"
+msgstr "Dotaz"
+
+#: materials/models.py:299
+msgid "Počet výsledků"
+msgstr "Počet výsledků"
+
+#: materials/models.py:300
+msgid "Filtr ročníku"
+msgstr "Filtr ročníku"
+
+#: materials/models.py:301
+msgid "Filtr předmětu"
+msgstr "Filtr předmětu"
+
+#: materials/models.py:305
+msgid "Log vyhledávání"
+msgstr "Log vyhledávání"
+
+#: materials/models.py:306
+msgid "Logy vyhledávání"
+msgstr "Logy vyhledávání"
+
+#: materials/views.py:122
+msgid "Materiál byl úspěšně nahrán. Probíhá extrakce textu…"
+msgstr "Materiál byl úspěšně nahrán. Probíhá extrakce textu…"
+
+#: materials/views.py:274
+msgid "Vyberte alespoň jeden soubor a typ materiálu."
+msgstr "Vyberte alespoň jeden soubor a typ materiálu."
+
+#: materials/views.py:293
+#, python-format
+msgid "Nahráno %(n)d souborů."
+msgstr "Nahráno %(n)d souborů."
+
+#: materials/views.py:318
+msgid "Vyberte soubor."
+msgstr "Vyberte soubor."
+
+#: materials/views.py:343
+msgid "Nová verze byla nahrána."
+msgstr "Nová verze byla nahrána."
+
+#: materials/views.py:368
+msgid "Materiál byl smazán."
+msgstr "Materiál byl smazán."
+
+#: materials/views.py:393
+msgid "Nebyl vybrán žádný student."
+msgstr "Nebyl vybrán žádný student."
+
+#: materials/views.py:409
+msgid "VIP oprávnění bylo uděleno."
+msgstr "VIP oprávnění bylo uděleno."
+
+#: materials/views.py:411
+msgid "Student již VIP oprávnění má."
+msgstr "Student již VIP oprávnění má."
+
+#: materials/views.py:433
+msgid "VIP oprávnění bylo odebráno."
+msgstr "VIP oprávnění bylo odebráno."
+
+#: setup/forms.py:15
+msgid "např. Gymnázium Jana Nerudy"
+msgstr "např. Gymnázium Jana Nerudy"
+
+#: setup/forms.py:21
+msgid "Doména, na které bude systém dostupný, např. skola.cz"
+msgstr "Doména, na které bude systém dostupný, např. skola.cz"
+
+#: setup/forms.py:29
+msgid "Google Client ID"
+msgstr "Google Client ID"
+
+#: setup/forms.py:37
+msgid "Google Client Secret"
+msgstr "Google Client Secret"
+
+#: setup/forms.py:46
+msgid "Omezit přihlášení na doménu"
+msgstr "Omezit přihlášení na doménu"
+
+#: setup/forms.py:47
+msgid ""
+"Nepovinné. Pouze uživatelé s e-mailem @tato-domena.cz se mohou přihlásit."
+msgstr ""
+"Nepovinné. Pouze uživatelé s e-mailem @tato-domena.cz se mohou přihlásit."
+
+#: setup/forms.py:58
+msgid "Jméno"
+msgstr "Jméno"
+
+#: setup/forms.py:61
+msgid "Jan"
+msgstr "Jan"
+
+#: setup/forms.py:66
+msgid "Příjmení"
+msgstr "Příjmení"
+
+#: setup/forms.py:69
+msgid "Novák"
+msgstr "Novák"
+
+#: setup/forms.py:73
+msgid "E-mail"
+msgstr "E-mail"
+
+#: setup/forms.py:80
+msgid "Heslo"
+msgstr "Heslo"
+
+#: setup/forms.py:86
+msgid "Heslo znovu"
+msgstr "Heslo znovu"
+
+#: setup/forms.py:95
+msgid "Uživatel s tímto e-mailem již existuje."
+msgstr "Uživatel s tímto e-mailem již existuje."
+
+#: setup/forms.py:103
+msgid "Hesla se neshodují."
+msgstr "Hesla se neshodují."
+
+#: templates/account/login.html:13
+msgid "Přihlaste se školním Google účtem"
+msgstr "Přihlaste se školním Google účtem"
+
+#: templates/account/login.html:28
+msgid "Přihlásit se přes Google"
+msgstr "Přihlásit se přes Google"
+
+#: templates/account/logout.html:10
+msgid "Opravdu se chcete odhlásit?"
+msgstr "Opravdu se chcete odhlásit?"
+
+#: templates/account/logout.html:13
+msgid "Odhlásit se"
+msgstr "Odhlásit se"
+
+#: templates/account/logout.html:15
+msgid "Zpět na hlavní stránku"
+msgstr "Zpět na hlavní stránku"
+
+#: templates/admin/index.html:4 templates/admin/index.html:19
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: templates/admin/index.html:52
+msgid "Nahrávání materiálů – posledních 30 dní"
+msgstr "Nahrávání materiálů – posledních 30 dní"
+
+#: templates/admin/index.html:62
+msgid "Uživatelé podle role"
+msgstr "Uživatelé podle role"
+
+#: templates/admin/index.html:74
+msgid "Top předměty podle počtu materiálů"
+msgstr "Top předměty podle počtu materiálů"
+
+#: templates/admin/index.html:87
+msgid "Nejhledanější výrazy (30 dní)"
+msgstr "Nejhledanější výrazy (30 dní)"
+
+#: templates/admin/index.html:96
+msgid "Nenašlo nic"
+msgstr "Nenašlo nic"
+
+#: templates/admin/index.html:103
+msgid "Zobrazit všechny logy →"
+msgstr "Zobrazit všechny logy →"
+
+#: templates/admin/index.html:112
+msgid "Poslední nahrané materiály"
+msgstr "Poslední nahrané materiály"
+
+#: templates/admin/index.html:120
+msgid "Datum"
+msgstr "Datum"
+
+#: templates/admin/index.html:151
+msgid "Audit log – posledních 20 událostí"
+msgstr "Audit log – posledních 20 událostí"
+
+#: templates/admin/index.html:166
+msgid "IP"
+msgstr "IP"
+
+#: templates/admin/index.html:203
+msgid "Zobrazit celý audit log →"
+msgstr "Zobrazit celý audit log →"
+
+#: templates/admin/index.html:219
+msgid "Nahrávání"
+msgstr "Nahrávání"
+
+#: templates/admin/index.html:273 templates/users/profile.html:37
+msgid "Materiálů"
+msgstr "Materiálů"
+
+#: templates/base.html:35 templates/materials/search_results.html:15
+msgid "Hledat v materiálech…"
+msgstr "Hledat v materiálech…"
+
+#: templates/base.html:35
+msgid "zkratka"
+msgstr "zkratka"
+
+#: templates/base.html:79
+msgid "Odhlásit"
+msgstr "Odhlásit"
+
+#: templates/base.html:82
+msgid "Přihlásit se"
+msgstr "Přihlásit se"
+
+#: templates/base.html:93
+msgid "Hledat…"
+msgstr "Hledat…"
+
+#: templates/base.html:123
+msgid "Open-source školní databáze materiálů"
+msgstr "Open-source školní databáze materiálů"
+
+#: templates/base.html:126
+msgid "Nastavit oblíbené předměty"
+msgstr "Nastavit oblíbené předměty"
+
+#: templates/core/homepage.html:13
+msgid "Dobrý den"
+msgstr "Dobrý den"
+
+#: templates/core/homepage.html:15
+msgid "Vaše přehledová plocha"
+msgstr "Vaše přehledová plocha"
+
+#: templates/core/homepage.html:20
+msgid "Administrace"
+msgstr "Administrace"
+
+#: templates/core/homepage.html:28
+msgid "Všechny materiály"
+msgstr "Všechny materiály"
+
+#: templates/core/homepage.html:50
+msgid "Aktivní ročníky"
+msgstr "Aktivní ročníky"
+
+#: templates/core/homepage.html:57
+msgid "Poslední aktivita"
+msgstr "Poslední aktivita"
+
+#: templates/core/homepage.html:58 templates/core/homepage.html:124
+msgid "Zobrazit vše →"
+msgstr "Zobrazit vše →"
+
+#: templates/core/homepage.html:78
+msgid "Zatím žádná aktivita."
+msgstr "Zatím žádná aktivita."
+
+#: templates/core/homepage.html:99 templates/materials/upload.html:32
+msgid "Nahrát"
+msgstr "Nahrát"
+
+#: templates/core/homepage.html:127 templates/users/profile.html:82
+msgid "Zatím žádné materiály."
+msgstr "Zatím žádné materiály."
+
+#: templates/core/homepage.html:137
+msgid "Vyberte si své předměty"
+msgstr "Vyberte si své předměty"
+
+#: templates/core/homepage.html:139
+#, python-format
+msgid ""
+"\n"
+"          Přidejte si až %(max)s oblíbených předmětů a uvidíte jejich "
+"nejnovější materiály přímo tady.\n"
+"        "
+msgstr ""
+"\n"
+"          Přidejte si až %(max)s oblíbených předmětů a uvidíte jejich "
+"nejnovější materiály přímo tady.\n"
+"        "
+
+#: templates/core/homepage.html:144
+msgid "Vybrat předměty"
+msgstr "Vybrat předměty"
+
+#: templates/core/homepage_anon.html:4
+msgid "Školní databáze materiálů"
+msgstr "Školní databáze materiálů"
+
+#: templates/core/homepage_anon.html:12
+msgid ""
+"Sdílej a procházej učební materiály své školy. Rychle, přehledně, bezpečně."
+msgstr ""
+"Sdílej a procházej učební materiály své školy. Rychle, přehledně, bezpečně."
+
+#: templates/core/homepage_anon.html:16
+msgid "Přihlásit se školním účtem Google"
+msgstr "Přihlásit se školním účtem Google"
+
+#: templates/core/homepage_anon.html:23
+msgid "Strukturované materiály"
+msgstr "Strukturované materiály"
+
+#: templates/core/homepage_anon.html:24
+msgid "Ročník → Předmět → Podklady, Testy, Otázky"
+msgstr "Ročník → Předmět → Podklady, Testy, Otázky"
+
+#: templates/core/homepage_anon.html:28
+msgid "Fulltextové vyhledávání"
+msgstr "Fulltextové vyhledávání"
+
+#: templates/core/homepage_anon.html:29
+msgid "Prohledává text extrahovaný z nahraných PDF a skenů"
+msgstr "Prohledává text extrahovaný z nahraných PDF a skenů"
+
+#: templates/core/homepage_anon.html:33
+msgid "AI připraveno (V5.0)"
+msgstr "AI připraveno (V5.0)"
+
+#: templates/core/homepage_anon.html:34
+msgid "OCR základ pro budoucí generování testů z materiálů"
+msgstr "OCR základ pro budoucí generování testů z materiálů"
+
+#: templates/core/subject_preferences.html:4
+#: templates/core/subject_preferences.html:10 users/models.py:48
+msgid "Oblíbené předměty"
+msgstr "Oblíbené předměty"
+
+#: templates/core/subject_preferences.html:12
+#, python-format
+msgid ""
+"\n"
+"        Vyberte až %(max)s předměty, které se zobrazí na vaší domovské "
+"stránce.\n"
+"      "
+msgstr ""
+"\n"
+"        Vyberte až %(max)s předměty, které se zobrazí na vaší domovské "
+"stránce.\n"
+"      "
+
+#: templates/core/subject_preferences.html:38
+#: templates/materials/school_year_list.html:22
+msgid "Žádné předměty."
+msgstr "Žádné předměty."
+
+#: templates/core/subject_preferences.html:44
+msgid "Žádné aktivní ročníky. Požádejte administrátora."
+msgstr "Žádné aktivní ročníky. Požádejte administrátora."
+
+#: templates/core/subject_preferences.html:49
+msgid "Uložit"
+msgstr "Uložit"
+
+#: templates/core/subject_preferences.html:50
+#: templates/materials/bulk_upload.html:43 templates/materials/upload.html:33
+#: templates/materials/upload_version.html:26
+msgid "Zrušit"
+msgstr "Zrušit"
+
+#: templates/core/subject_preferences.html:52
+msgid "vybráno"
+msgstr "vybráno"
+
+#: templates/materials/bulk_upload.html:4
+#: templates/materials/bulk_upload.html:9
+#: templates/materials/subject_detail.html:26
+msgid "Hromadný upload"
+msgstr "Hromadný upload"
+
+#: templates/materials/bulk_upload.html:19
+msgid "Vyberte typ"
+msgstr "Vyberte typ"
+
+#: templates/materials/bulk_upload.html:27
+msgid "Soubory"
+msgstr "Soubory"
+
+#: templates/materials/bulk_upload.html:31
+msgid "Přetáhněte soubory sem nebo"
+msgstr "Přetáhněte soubory sem nebo"
+
+#: templates/materials/bulk_upload.html:32
+msgid "klikněte pro výběr"
+msgstr "klikněte pro výběr"
+
+#: templates/materials/bulk_upload.html:46
+msgid "Nahrát soubory"
+msgstr "Nahrát soubory"
+
+#: templates/materials/material_detail.html:53
+msgid "Otevřít soubor"
+msgstr "Otevřít soubor"
+
+#: templates/materials/material_detail.html:56
+msgid "Stáhnout"
+msgstr "Stáhnout"
+
+#: templates/materials/material_detail.html:59
+msgid "Soubor není k dispozici."
+msgstr "Soubor není k dispozici."
+
+#: templates/materials/material_detail.html:76
+#: templates/materials/upload_version.html:4
+msgid "Nová verze"
+msgstr "Nová verze"
+
+#: templates/materials/material_detail.html:84
+msgid "Starší verze:"
+msgstr "Starší verze:"
+
+#: templates/materials/material_detail.html:100
+msgid "Extrahovaný text (pro vyhledávání)"
+msgstr "Extrahovaný text (pro vyhledávání)"
+
+#: templates/materials/material_detail.html:105
+msgid "Extrakce textu probíhá na pozadí…"
+msgstr "Extrakce textu probíhá na pozadí…"
+
+#: templates/materials/material_detail.html:132
+#: templates/materials/subject_detail.html:83
+msgid "Smazat"
+msgstr "Smazat"
+
+#: templates/materials/material_detail.html:139
+msgid "Zatím žádné komentáře. Buďte první!"
+msgstr "Zatím žádné komentáře. Buďte první!"
+
+#: templates/materials/material_detail.html:150
+msgid "Napište komentář…"
+msgstr "Napište komentář…"
+
+#: templates/materials/material_detail.html:152
+msgid "Odeslat"
+msgstr "Odeslat"
+
+#: templates/materials/school_year_list.html:8
+msgid "Školní materiály"
+msgstr "Školní materiály"
+
+#: templates/materials/school_year_list.html:30
+msgid "Zatím nejsou žádné ročníky. Požádejte administrátora."
+msgstr "Zatím nejsou žádné ročníky. Požádejte administrátora."
+
+#: templates/materials/search_results.html:4
+#, python-format
+msgid "„%(query)s\" – Hledání"
+msgstr "„%(query)s\" – Hledání"
+
+#: templates/materials/search_results.html:4
+msgid "Hledání"
+msgstr "Hledání"
+
+#: templates/materials/search_results.html:21
+msgid "Všechny ročníky"
+msgstr "Všechny ročníky"
+
+#: templates/materials/search_results.html:32
+msgid "Všechny předměty"
+msgstr "Všechny předměty"
+
+#: templates/materials/search_results.html:42
+msgid "Hledat"
+msgstr "Hledat"
+
+#: templates/materials/search_results.html:72
+#, python-format
+msgid ""
+"\n"
+"          Nalezen %(count)s výsledek pro „%(query)s\"\n"
+"        "
+msgid_plural ""
+"\n"
+"          Nalezeno %(count)s výsledků pro „%(query)s\"\n"
+"        "
+msgstr[0] ""
+"\n"
+"          Nalezen %(count)s výsledek pro „%(query)s\"\n"
+"        "
+msgstr[1] ""
+"\n"
+"          Nalezeny %(count)s výsledky pro „%(query)s\"\n"
+"        "
+msgstr[2] ""
+"\n"
+"          Nalezeno %(count)s výsledků pro „%(query)s\"\n"
+"        "
+msgstr[3] ""
+"\n"
+"          Nalezeno %(count)s výsledků pro „%(query)s\"\n"
+"        "
+
+#: templates/materials/search_results.html:78
+#, python-format
+msgid "Žádné výsledky pro „%(query)s\""
+msgstr "Žádné výsledky pro „%(query)s\""
+
+#: templates/materials/search_results.html:127
+msgid "Předchozí"
+msgstr "Předchozí"
+
+#: templates/materials/search_results.html:130
+msgid "Strana"
+msgstr "Strana"
+
+#: templates/materials/search_results.html:134
+msgid "Další"
+msgstr "Další"
+
+#: templates/materials/search_results.html:142
+msgid "Nic nenalezeno"
+msgstr "Nic nenalezeno"
+
+#: templates/materials/search_results.html:144
+msgid "Zkuste jiný dotaz nebo odstraňte filtr."
+msgstr "Zkuste jiný dotaz nebo odstraňte filtr."
+
+#: templates/materials/search_results.html:150
+msgid "Zadejte hledaný výraz výše."
+msgstr "Zadejte hledaný výraz výše."
+
+#: templates/materials/search_results.html:153
+msgid "Populární výrazy"
+msgstr "Populární výrazy"
+
+#: templates/materials/subject_detail.html:22
+msgid "+ Nahrát materiál"
+msgstr "+ Nahrát materiál"
+
+#: templates/materials/subject_detail.html:37
+msgid "Vše"
+msgstr "Vše"
+
+#: templates/materials/subject_detail.html:81
+msgid "Opravdu smazat?"
+msgstr "Opravdu smazat?"
+
+#: templates/materials/subject_detail.html:92
+msgid "Zatím nejsou žádné materiály."
+msgstr "Zatím nejsou žádné materiály."
+
+#: templates/materials/upload.html:4
+msgid "Nahrát materiál"
+msgstr "Nahrát materiál"
+
+#: templates/materials/upload.html:10
+msgid "Nahrát nový materiál"
+msgstr "Nahrát nový materiál"
+
+#: templates/materials/upload_version.html:9
+#: templates/materials/upload_version.html:27
+msgid "Nahrát novou verzi"
+msgstr "Nahrát novou verzi"
+
+#: templates/materials/upload_version.html:12
+msgid "Aktuální verze:"
+msgstr "Aktuální verze:"
+
+#: templates/materials/upload_version.html:13
+msgid "Původní bude skryta, nová verze bude zveřejněna."
+msgstr "Původní bude skryta, nová verze bude zveřejněna."
+
+#: templates/materials/upload_version.html:20
+msgid "Nový soubor"
+msgstr "Nový soubor"
+
+#: templates/setup/base_setup.html:22
+msgid "Průvodce instalací"
+msgstr "Průvodce instalací"
+
+#: templates/setup/step_admin.html:9
+msgid "Vytvořte administrátorský účet"
+msgstr "Vytvořte administrátorský účet"
+
+#: templates/setup/step_admin.html:10
+msgid "Tento účet bude mít plný přístup k administraci systému."
+msgstr "Tento účet bude mít plný přístup k administraci systému."
+
+#: templates/setup/step_admin.html:56 templates/setup/step_school.html:89
+msgid "Zpět"
+msgstr "Zpět"
+
+#: templates/setup/step_admin.html:60
+msgid "Dokončit instalaci"
+msgstr "Dokončit instalaci"
+
+#: templates/setup/step_done.html:16
+msgid "Instalace byla úspěšně dokončena!"
+msgstr "Instalace byla úspěšně dokončena!"
+
+#: templates/setup/step_done.html:18
+#, python-format
+msgid ""
+"\n"
+"        Systém EduBase pro <strong>%(name)s</strong> je připraven k "
+"použití.\n"
+"      "
+msgstr ""
+"\n"
+"        Systém EduBase pro <strong>%(name)s</strong> je připraven k "
+"použití.\n"
+"      "
+
+#: templates/setup/step_done.html:22
+msgid "Byli jste automaticky přihlášeni jako administrátor."
+msgstr "Byli jste automaticky přihlášeni jako administrátor."
+
+#: templates/setup/step_done.html:30
+msgid "Přejít na domovskou stránku"
+msgstr "Přejít na domovskou stránku"
+
+#: templates/setup/step_done.html:38
+msgid "Otevřít administraci"
+msgstr "Otevřít administraci"
+
+#: templates/setup/step_school.html:9
+msgid "Nastavení školy a Google OAuth"
+msgstr "Nastavení školy a Google OAuth"
+
+#: templates/setup/step_school.html:11
+msgid "Vyplňte název školy a přihlašovací údaje Google OAuth. Ty získáte v"
+msgstr "Vyplňte název školy a přihlašovací údaje Google OAuth. Ty získáte v"
+
+#: templates/setup/step_school.html:56
+msgid "Google OAuth přihlašovací údaje"
+msgstr "Google OAuth přihlašovací údaje"
+
+#: templates/setup/step_school.html:93 templates/setup/step_welcome.html:44
+msgid "Pokračovat"
+msgstr "Pokračovat"
+
+#: templates/setup/step_welcome.html:10
+msgid "Vítejte v instalačním průvodci"
+msgstr "Vítejte v instalačním průvodci"
+
+#: templates/setup/step_welcome.html:11
+msgid "Zkontrolujeme systémové požadavky a provedeme vás základním nastavením."
+msgstr "Zkontrolujeme systémové požadavky a provedeme vás základním nastavením."
+
+#: templates/setup/step_welcome.html:17
+msgid "Systémové požadavky"
+msgstr "Systémové požadavky"
+
+#: templates/socialaccount/authentication_error.html:4
+msgid "Chyba přihlášení"
+msgstr "Chyba přihlášení"
+
+#: templates/socialaccount/authentication_error.html:10
+msgid "Přihlášení selhalo"
+msgstr "Přihlášení selhalo"
+
+#: templates/socialaccount/authentication_error.html:12
+msgid ""
+"Nepodařilo se vás přihlásit. Ujistěte se, že používáte školní Google účet."
+msgstr ""
+"Nepodařilo se vás přihlásit. Ujistěte se, že používáte školní Google účet."
+
+#: templates/socialaccount/authentication_error.html:15
+msgid "Zkusit znovu"
+msgstr "Zkusit znovu"
+
+#: templates/socialaccount/signup.html:4
+msgid "Dokončit registraci"
+msgstr "Dokončit registraci"
+
+#: templates/socialaccount/signup.html:25
+msgid "Téměř hotovo!"
+msgstr "Téměř hotovo!"
+
+#: templates/socialaccount/signup.html:28
+msgid ""
+"Přihlašujete se přes Google účet. Potvrďte prosím svůj uživatelský profil."
+msgstr ""
+"Přihlašujete se přes Google účet. Potvrďte prosím svůj uživatelský profil."
+
+#: templates/socialaccount/signup.html:75
+msgid "Vytvořit účet"
+msgstr "Vytvořit účet"
+
+#: templates/users/profile.html:22
+msgid "Nástup"
+msgstr "Nástup"
+
+#: templates/users/profile.html:29
+msgid "Nastavení"
+msgstr "Nastavení"
+
+#: templates/users/profile.html:41
+msgid "Celkem stažení"
+msgstr "Celkem stažení"
+
+#: templates/users/profile.html:45
+msgid "Celkem líbí se"
+msgstr "Celkem líbí se"
+
+#: templates/users/profile.html:51
+msgid "Nahrané materiály"
+msgstr "Nahrané materiály"
+
+#: users/adapters.py:36
+#, python-format
+msgid "Přihlášení je povoleno pouze pro doménu @%(domain)s."
+msgstr "Přihlášení je povoleno pouze pro doménu @%(domain)s."
+
+#: users/admin.py:66 users/admin.py:71
+msgid "EduBase"
+msgstr "EduBase"
+
+#: users/models.py:16
+msgid "Učitel"
+msgstr "Učitel"
+
+#: users/models.py:17
+msgid "Administrátor"
+msgstr "Administrátor"
+
+#: users/models.py:20
+msgid "Celé jméno"
+msgstr "Celé jméno"
+
+#: users/models.py:21
+msgid "Iniciály"
+msgstr "Iniciály"
+
+#: users/models.py:22
+msgid "Anonymně"
+msgstr "Anonymně"
+
+#: users/models.py:28
+msgid "Role"
+msgstr "Role"
+
+#: users/models.py:35
+msgid "Zobrazení identity"
+msgstr "Zobrazení identity"
+
+#: users/models.py:40
+msgid "Rok nástupu"
+msgstr "Rok nástupu"
+
+#: users/models.py:41
+msgid "Zobrazuje se při anonymním režimu zobrazení."
+msgstr "Zobrazuje se při anonymním režimu zobrazení."
+
+#: users/models.py:89
+msgid "Anonymní"
+msgstr "Anonymní"
+
+msgid "Změnit roli na: Student"
+msgstr "Změnit roli na: Student"
+
+msgid "Změnit roli na: Učitel"
+msgstr "Změnit roli na: Učitel"
+
+msgid "Změnit roli na: Admin"
+msgstr "Změnit roli na: Admin"
+
+msgid "Exportovat soubory jako ZIP"
+msgstr "Exportovat soubory jako ZIP"
+
+msgid "Stáhnout předmět jako ZIP"
+msgstr "Stáhnout předmět jako ZIP"
+
+#~ msgid "Open-source platforma pro sdílení učebních materiálů"
+#~ msgstr "Open-source platforma pro sdílení učebních materiálů"
+
+#~ msgid "Krok 1 dokončen – infrastruktura připravena."
+#~ msgstr "Krok 1 dokončen – infrastruktura připravena."
+
+#~ msgid "Automatická extrakce textu z PDF a obrázků"
+#~ msgstr "Automatická extrakce textu z PDF a obrázků"

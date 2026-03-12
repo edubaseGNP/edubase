@@ -1,0 +1,290 @@
+{% extends "admin/base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Dashboard" %} | EduBase{% endblock %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <style>
+    .stat-card { background: white; border-radius: 0.75rem; padding: 1.25rem 1.5rem; border: 1px solid #e5e7eb; }
+    .chart-card { background: white; border-radius: 0.75rem; padding: 1.5rem; border: 1px solid #e5e7eb; }
+  </style>
+{% endblock %}
+
+{% block content %}
+<div style="padding: 1.5rem; max-width: 1280px; margin: 0 auto;">
+
+  <h1 style="font-size: 1.5rem; font-weight: 700; color: #111827; margin-bottom: 1.5rem;">
+    {% trans "Dashboard" %}
+  </h1>
+
+  <!-- Stat cards -->
+  {% if dashboard_stats %}
+  <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+    {% for s in dashboard_stats %}
+    <div class="stat-card" style="display: flex; align-items: center; gap: 1rem;">
+      <span class="material-symbols-outlined"
+            style="font-size: 2rem; color:
+              {% if s.color == 'blue' %}#3b82f6
+              {% elif s.color == 'green' %}#22c55e
+              {% elif s.color == 'purple' %}#a855f7
+              {% elif s.color == 'red' %}#ef4444
+              {% else %}#f97316{% endif %};">
+        {{ s.icon }}
+      </span>
+      <div>
+        <p style="font-size: 1.75rem; font-weight: 700; color: #111827; line-height: 1;">{{ s.value }}</p>
+        <p style="font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem;">{{ s.label }}</p>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Charts row -->
+  <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; margin-bottom: 2rem;">
+
+    <!-- Uploads per day -->
+    {% if chart_uploads %}
+    <div class="chart-card">
+      <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">
+        {% trans "Nahrávání materiálů – posledních 30 dní" %}
+      </h2>
+      <canvas id="uploadsChart" height="90"></canvas>
+    </div>
+    {% endif %}
+
+    <!-- Users by role -->
+    {% if chart_roles %}
+    <div class="chart-card" style="display: flex; flex-direction: column; align-items: center;">
+      <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 1rem; align-self: flex-start;">
+        {% trans "Uživatelé podle role" %}
+      </h2>
+      <canvas id="rolesChart" style="max-width: 220px; max-height: 220px;"></canvas>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Top subjects chart -->
+  {% if chart_subjects %}
+  <div class="chart-card" style="margin-bottom: 2rem;">
+    <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">
+      {% trans "Top předměty podle počtu materiálů" %}
+    </h2>
+    <canvas id="subjectsChart" height="60"></canvas>
+  </div>
+  {% endif %}
+
+  <!-- Top searches + recent uploads side by side -->
+  <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 1.5rem; margin-bottom: 2rem;">
+
+  <!-- Top searches -->
+  {% if top_searches %}
+  <div class="chart-card">
+    <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">
+      🔍 {% trans "Nejhledanější výrazy (30 dní)" %}
+    </h2>
+    <ol style="list-style: none; margin: 0; padding: 0; font-size: 0.85rem;">
+      {% for s in top_searches %}
+        <li style="display: flex; justify-content: space-between; align-items: center; padding: 0.4rem 0; border-bottom: 1px solid #f3f4f6;">
+          <span style="color: #374151; font-weight: 500;">{{ s.query }}</span>
+          <span style="display: flex; gap: 0.5rem; align-items: center;">
+            <span style="color: #6b7280; font-size: 0.75rem;">{{ s.cnt }}×</span>
+            {% if s.zero_results %}
+              <span style="color: #ef4444; font-size: 0.7rem;" title="{% trans 'Nenašlo nic' %}">✗{{ s.zero_results }}</span>
+            {% endif %}
+          </span>
+        </li>
+      {% endfor %}
+    </ol>
+    <a href="/admin/materials/searchlog/" style="display: block; margin-top: 0.75rem; font-size: 0.75rem; color: #3b82f6; text-decoration: none;">
+      {% trans "Zobrazit všechny logy →" %}
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- Recent uploads table -->
+  {% if recent_materials %}
+  <div class="chart-card">
+    <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">
+      {% trans "Poslední nahrané materiály" %}
+    </h2>
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+      <thead>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <th style="text-align:left; padding: 0.5rem 0.75rem; color: #6b7280; font-weight: 600;">{% trans "Název" %}</th>
+          <th style="text-align:left; padding: 0.5rem 0.75rem; color: #6b7280; font-weight: 600;">{% trans "Předmět" %}</th>
+          <th style="text-align:left; padding: 0.5rem 0.75rem; color: #6b7280; font-weight: 600;">{% trans "Autor" %}</th>
+          <th style="text-align:left; padding: 0.5rem 0.75rem; color: #6b7280; font-weight: 600;">{% trans "Datum" %}</th>
+          <th style="text-align:right; padding: 0.5rem 0.75rem; color: #6b7280; font-weight: 600;">⬇</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in recent_materials %}
+        <tr style="border-bottom: 1px solid #f3f4f6; {% if forloop.counter|divisibleby:2 %}background:#f9fafb;{% endif %}">
+          <td style="padding: 0.5rem 0.75rem;">
+            <a href="/admin/materials/material/{{ m.pk }}/change/"
+               style="color: #3b82f6; text-decoration: none; font-weight: 500;">
+              {{ m.title|truncatechars:40 }}
+            </a>
+          </td>
+          <td style="padding: 0.5rem 0.75rem; color: #374151;">{{ m.subject.name|truncatechars:25 }}</td>
+          <td style="padding: 0.5rem 0.75rem; color: #374151;">{{ m.author.get_display_name|default:"-" }}</td>
+          <td style="padding: 0.5rem 0.75rem; color: #6b7280;">{{ m.created_at|date:"j. n. Y" }}</td>
+          <td style="padding: 0.5rem 0.75rem; text-align: right; color: #6b7280;">{{ m.download_count }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  </div><!-- end grid -->
+
+  <!-- Recent audit log -->
+  {% if recent_audit %}
+  <div class="chart-card" style="margin-bottom: 2rem;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+      <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin:0;">
+        🛡️ {% trans "Audit log – posledních 20 událostí" %}
+      </h2>
+      {% if audit_warnings %}
+      <span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:0.75rem;font-weight:600;">
+        ⚠ {{ audit_warnings }} varování / chyb za 7 dní
+      </span>
+      {% endif %}
+    </div>
+    <table style="width:100%;border-collapse:collapse;font-size:0.82rem;">
+      <thead>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <th style="text-align:left;padding:0.4rem 0.5rem;color:#6b7280;font-weight:600;white-space:nowrap;">{% trans "Čas" %}</th>
+          <th style="text-align:left;padding:0.4rem 0.5rem;color:#6b7280;font-weight:600;">{% trans "Akce" %}</th>
+          <th style="text-align:left;padding:0.4rem 0.5rem;color:#6b7280;font-weight:600;">{% trans "Uživatel" %}</th>
+          <th style="text-align:left;padding:0.4rem 0.5rem;color:#6b7280;font-weight:600;">{% trans "Popis" %}</th>
+          <th style="text-align:left;padding:0.4rem 0.5rem;color:#6b7280;font-weight:600;">{% trans "IP" %}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in recent_audit %}
+        <tr style="border-bottom:1px solid #f3f4f6;{% if e.level == 'error' %}background:#fff1f2;{% elif e.level == 'warning' %}background:#fffbeb;{% elif forloop.counter|divisibleby:2 %}background:#f9fafb;{% endif %}">
+          <td style="padding:0.4rem 0.5rem;color:#9ca3af;white-space:nowrap;">{{ e.timestamp|date:"j.n. H:i" }}</td>
+          <td style="padding:0.4rem 0.5rem;">
+            <span style="
+              {% if e.action == 'login' %}background:#d1fae5;color:#065f46;
+              {% elif e.action == 'logout' %}background:#f3f4f6;color:#374151;
+              {% elif e.action == 'register' %}background:#dbeafe;color:#1e40af;
+              {% elif e.action == 'upload' %}background:#e0e7ff;color:#3730a3;
+              {% elif e.action == 'download' %}background:#ede9fe;color:#5b21b6;
+              {% elif e.action == 'delete' %}background:#fee2e2;color:#991b1b;
+              {% elif e.action == 'comment_delete' %}background:#fde8d8;color:#9a3412;
+              {% elif e.action == 'vip_grant' %}background:#fef3c7;color:#92400e;
+              {% elif e.action == 'vip_revoke' %}background:#fee2e2;color:#7f1d1d;
+              {% else %}background:#f3f4f6;color:#374151;{% endif %}
+              padding:1px 7px;border-radius:10px;font-size:0.7rem;font-weight:600;white-space:nowrap;">
+              {{ e.get_action_display }}
+            </span>
+          </td>
+          <td style="padding:0.4rem 0.5rem;color:#374151;">
+            {% if e.user %}
+              <a href="/admin/users/user/{{ e.user_id }}/change/" style="color:#3b82f6;text-decoration:none;">
+                {{ e.user.email|truncatechars:25 }}
+              </a>
+            {% else %}—{% endif %}
+          </td>
+          <td style="padding:0.4rem 0.5rem;color:#6b7280;">{{ e.description|truncatechars:60 }}</td>
+          <td style="padding:0.4rem 0.5rem;color:#9ca3af;font-size:0.75rem;">{{ e.ip_address|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <a href="/admin/core/auditlog/" style="display:block;margin-top:0.75rem;font-size:0.75rem;color:#3b82f6;text-decoration:none;">
+      {% trans "Zobrazit celý audit log →" %}
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+
+<script>
+{% if chart_uploads %}
+(function() {
+  const d = {{ chart_uploads|safe }};
+  new Chart(document.getElementById('uploadsChart'), {
+    type: 'line',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: '{% trans "Nahrávání" %}',
+        data: d.data,
+        borderColor: '#3b82f6',
+        backgroundColor: 'rgba(59,130,246,0.08)',
+        borderWidth: 2,
+        fill: true,
+        tension: 0.3,
+        pointRadius: 2,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } },
+        x: { ticks: { maxTicksLimit: 10 } }
+      }
+    }
+  });
+})();
+{% endif %}
+
+{% if chart_roles %}
+(function() {
+  const d = {{ chart_roles|safe }};
+  new Chart(document.getElementById('rolesChart'), {
+    type: 'doughnut',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        data: d.data,
+        backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444'],
+        borderWidth: 2,
+        borderColor: '#fff',
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 12 } } }
+      }
+    }
+  });
+})();
+{% endif %}
+
+{% if chart_subjects %}
+(function() {
+  const d = {{ chart_subjects|safe }};
+  new Chart(document.getElementById('subjectsChart'), {
+    type: 'bar',
+    data: {
+      labels: d.labels,
+      datasets: [{
+        label: '{% trans "Materiálů" %}',
+        data: d.data,
+        backgroundColor: '#818cf8',
+        borderRadius: 6,
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { beginAtZero: true, ticks: { stepSize: 1 } }
+      }
+    }
+  });
+})();
+{% endif %}
+</script>
+{% endblock %}
