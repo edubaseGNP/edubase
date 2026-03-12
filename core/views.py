@@ -1,8 +1,11 @@
 import logging
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import redirect, render
+from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
@@ -88,4 +91,54 @@ def subject_preferences(request):
         'school_years': school_years,
         'current_ids': current_ids,
         'max_favorites': MAX_FAVORITE_SUBJECTS,
+    })
+
+
+@login_required
+def notifications_list(request):
+    """Show user's notifications and mark them all as read."""
+    from .models import Notification
+    notifications = list(
+        Notification.objects.filter(recipient=request.user).order_by('-created_at')[:50]
+    )
+    # Mark unread as read
+    Notification.objects.filter(recipient=request.user, is_read=False).update(is_read=True)
+    return render(request, 'core/notifications.html', {'notifications': notifications})
+
+
+@login_required
+def teacher_statistics(request):
+    """Statistics for teachers (own subjects) and admins (all subjects)."""
+    from django.db.models import Count, Sum
+    from materials.models import Material, Subject
+
+    user = request.user
+    if not (user.is_teacher or user.is_admin_role or user.is_staff):
+        raise PermissionDenied
+
+    if user.is_admin_role or user.is_staff:
+        subjects = Subject.objects.select_related('school_year').order_by('school_year__name', 'name')
+    else:
+        subjects = user.taught_subjects.select_related('school_year').order_by('school_year__name', 'name')
+
+    subject_stats = []
+    for subject in subjects:
+        qs = Material.objects.filter(subject=subject, is_published=True)
+        total_count = qs.count()
+        total_downloads = qs.aggregate(s=Sum('download_count'))['s'] or 0
+        top_materials = list(qs.order_by('-download_count')[:3])
+        recent_count = qs.filter(
+            created_at__gte=timezone.now() - timedelta(days=30)
+        ).count()
+        subject_stats.append({
+            'subject': subject,
+            'total_count': total_count,
+            'total_downloads': total_downloads,
+            'top_materials': top_materials,
+            'recent_count': recent_count,
+        })
+
+    return render(request, 'core/statistics.html', {
+        'subject_stats': subject_stats,
+        'is_admin_view': user.is_admin_role or user.is_staff,
     })

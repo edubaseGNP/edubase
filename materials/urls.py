@@ -1,13 +1,14 @@
 from django.urls import path
 
 from . import views
-from .search import MaterialSearchView
+from .search import MaterialSearchView, SearchClickView
 
 app_name = 'materials'
 
 urlpatterns = [
     # Full-text search
     path('hledat/', MaterialSearchView.as_view(), name='search'),
+    path('hledat/klik/', SearchClickView.as_view(), name='search_click'),
 
     # School years
     path('', views.SchoolYearListView.as_view(), name='school_year_list'),

@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Notifikace" %} — EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">{% trans "Notifikace" %}</h1>
+
+  {% if notifications %}
+    <div class="space-y-2">
+      {% for notif in notifications %}
+        <div class="flex items-start gap-3 px-4 py-3 rounded-lg border
+                    {% if not notif.is_read %}bg-blue-50 border-blue-200{% else %}bg-white border-gray-100{% endif %}">
+          <!-- Icon -->
+          <div class="flex-shrink-0 mt-0.5">
+            <svg class="w-5 h-5 {% if not notif.is_read %}text-blue-500{% else %}text-gray-400{% endif %}"
+                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+            </svg>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-1 min-w-0">
+            {% if notif.target_url %}
+              <a href="{{ notif.target_url }}" class="text-sm text-gray-800 hover:text-primary-600">
+                {{ notif.verb }}
+              </a>
+            {% else %}
+              <p class="text-sm text-gray-800">{{ notif.verb }}</p>
+            {% endif %}
+            <p class="text-xs text-gray-400 mt-0.5">{{ notif.created_at|date:"j. n. Y, H:i" }}</p>
+          </div>
+
+          {% if not notif.is_read %}
+            <span class="flex-shrink-0 w-2 h-2 rounded-full bg-blue-500 mt-2"></span>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+      </svg>
+      <p class="text-sm">{% trans "Žádné notifikace" %}</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

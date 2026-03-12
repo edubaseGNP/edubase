@@ -1,0 +1,46 @@
+# Production override – use with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+#
+# Requirements in .env:
+#   DOMAIN=edubase.yourdomain.cz
+#   DJANGO_SETTINGS_MODULE=edubase.settings.prod
+#   SECRET_KEY=...
+#   DB_PASSWORD=...
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    depends_on:
+      - web
+
+  web:
+    # In production: Gunicorn, not runserver
+    command: >
+      gunicorn edubase.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 3
+      --timeout 60
+      --access-logfile -
+    # Do NOT expose port 8000 directly – Caddy terminates TLS
+    ports: []
+    environment:
+      DJANGO_SETTINGS_MODULE: edubase.settings.prod
+
+  celery:
+    environment:
+      DJANGO_SETTINGS_MODULE: edubase.settings.prod
+
+volumes:
+  caddy_data:
+  caddy_config:

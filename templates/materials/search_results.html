@@ -74,6 +74,9 @@
         {% plural %}
           Nalezeno {{ count }} výsledků pro „{{ query }}"
         {% endblocktrans %}
+        {% if duration_ms %}
+          <span class="ml-2 text-xs text-gray-400">({{ duration_ms }} ms)</span>
+        {% endif %}
       {% else %}
         {% blocktrans %}Žádné výsledky pro „{{ query }}"{% endblocktrans %}
       {% endif %}
@@ -87,13 +90,35 @@
     <div class="space-y-3">
       {% for mat in results %}
         <div class="card hover:shadow-md transition-shadow">
-          <a href="{% url 'materials:material_detail' pk=mat.pk %}" class="group">
+          <!-- Track click on result -->
+          <form method="post" action="{% url 'materials:search_click' %}" style="display:none" id="click-form-{{ mat.pk }}">
+            {% csrf_token %}
+            <input type="hidden" name="material_id" value="{{ mat.pk }}">
+            <input type="hidden" name="q" value="{{ query }}">
+            <input type="hidden" name="next" value="{% url 'materials:material_detail' pk=mat.pk %}">
+          </form>
+          <a href="{% url 'materials:material_detail' pk=mat.pk %}"
+             class="group"
+             onclick="document.getElementById('click-form-{{ mat.pk }}').submit(); return false;">
             <div class="flex items-start gap-3">
               <span class="text-2xl flex-shrink-0 mt-0.5">{% if mat.is_pdf %}📄{% else %}🖼️{% endif %}</span>
               <div class="flex-1 min-w-0">
-                <h3 class="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
-                  {{ mat.title }}
-                </h3>
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h3 class="text-base font-semibold text-gray-900 group-hover:text-primary-600 transition-colors">
+                    {{ mat.title }}
+                  </h3>
+                  {% if mat._hit_count > 1 %}
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700 font-medium"
+                          title="Počet výskytů hledaného výrazu">
+                      {{ mat._hit_count }}× výskyt
+                    </span>
+                  {% endif %}
+                  {% if mat.reading_time %}
+                    <span class="text-xs text-gray-400" title="Odhadovaná doba čtení">
+                      ~{{ mat.reading_time }} min čtení
+                    </span>
+                  {% endif %}
+                </div>
                 <p class="text-xs text-gray-400 mt-0.5">
                   <a href="{% url 'materials:subject_detail' year_slug=mat.subject.school_year.slug subject_slug=mat.subject.slug %}"
                      class="hover:underline" onclick="event.stopPropagation()">
@@ -104,13 +129,10 @@
                   · {{ mat.created_at|date:"j. n. Y" }}
                   {% if mat.ocr_processed %}<span class="text-green-500 ml-1">✓ OCR</span>{% endif %}
                 </p>
-                {% if mat.description %}
+                {% if mat._excerpt %}
+                  <p class="text-sm text-gray-600 mt-1.5 leading-relaxed">{{ mat._excerpt }}</p>
+                {% elif mat.description %}
                   <p class="text-sm text-gray-600 mt-1 line-clamp-2">{{ mat.description }}</p>
-                {% endif %}
-                {% if mat.extracted_text %}
-                  <p class="text-xs text-gray-400 mt-1 line-clamp-2 italic">
-                    {{ mat.extracted_text|truncatechars:200 }}
-                  </p>
                 {% endif %}
               </div>
             </div>

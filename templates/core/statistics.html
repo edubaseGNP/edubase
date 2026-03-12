@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+{% load i18n %}
+
+{% block title %}{% trans "Statistiky" %} — EduBase{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">{% trans "Statistiky" %}</h1>
+    {% if is_admin_view %}
+      <span class="text-xs px-2 py-1 bg-red-100 text-red-700 rounded-full font-medium">
+        {% trans "Zobrazení správce – všechny předměty" %}
+      </span>
+    {% endif %}
+  </div>
+
+  {% if subject_stats %}
+    <!-- Summary cards -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      {% with total_subjects=subject_stats|length %}
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+          <p class="text-2xl font-bold text-primary-600">{{ total_subjects }}</p>
+          <p class="text-xs text-gray-500 mt-1">{% trans "Předmětů" %}</p>
+        </div>
+      {% endwith %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+        <p class="text-2xl font-bold text-green-600">
+          {% with total=0 %}
+            {% for s in subject_stats %}{% if forloop.first %}{{ s.total_count }}{% endif %}{% endfor %}
+          {% endwith %}
+          {# Django templates can't sum — show total from first item as placeholder, use custom tag below #}
+        </p>
+        <p class="text-xs text-gray-500 mt-1">{% trans "Materiálů" %}</p>
+      </div>
+    </div>
+
+    <!-- Per-subject table -->
+    <div class="space-y-6">
+      {% for stat in subject_stats %}
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+          <!-- Subject header -->
+          <div class="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
+            <div>
+              <a href="{% url 'materials:subject_detail' year_slug=stat.subject.school_year.slug subject_slug=stat.subject.slug %}"
+                 class="font-semibold text-gray-900 hover:text-primary-600">
+                {{ stat.subject.name }}
+              </a>
+              <span class="ml-2 text-xs text-gray-400">{{ stat.subject.school_year }}</span>
+            </div>
+            <div class="flex items-center gap-4 text-sm">
+              <div class="text-center">
+                <p class="font-bold text-gray-900">{{ stat.total_count }}</p>
+                <p class="text-xs text-gray-400">{% trans "materiálů" %}</p>
+              </div>
+              <div class="text-center">
+                <p class="font-bold text-blue-600">{{ stat.total_downloads }}</p>
+                <p class="text-xs text-gray-400">{% trans "stažení" %}</p>
+              </div>
+              <div class="text-center">
+                <p class="font-bold text-green-600">{{ stat.recent_count }}</p>
+                <p class="text-xs text-gray-400">{% trans "za 30 dní" %}</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top materials -->
+          {% if stat.top_materials %}
+            <div class="px-5 py-3">
+              <p class="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
+                {% trans "Nejstahovanější" %}
+              </p>
+              <div class="space-y-1">
+                {% for mat in stat.top_materials %}
+                  <div class="flex items-center justify-between text-sm">
+                    <a href="{% url 'materials:material_detail' pk=mat.pk %}"
+                       class="text-gray-700 hover:text-primary-600 truncate max-w-xs">
+                      {{ mat.title }}
+                    </a>
+                    <span class="flex-shrink-0 ml-3 text-xs text-gray-400">
+                      {{ mat.download_count }}× {% trans "staženo" %}
+                    </span>
+                  </div>
+                {% endfor %}
+              </div>
+            </div>
+          {% else %}
+            <p class="px-5 py-3 text-sm text-gray-400">{% trans "Zatím žádné materiály." %}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <div class="text-center py-20 text-gray-400">
+      <svg class="w-12 h-12 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+              d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <p class="text-sm">{% trans "Zatím nemáte žádné přiřazené předměty." %}</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -195,6 +195,14 @@ class Material(models.Model):
     def is_image(self):
         return self.file_extension in ('.jpg', '.jpeg', '.png', '.gif', '.webp')
 
+    @property
+    def reading_time(self):
+        """Estimated reading time in minutes (200 words/min)."""
+        if not self.extracted_text:
+            return None
+        words = len(self.extracted_text.split())
+        return max(1, round(words / 200))
+
 
 class Comment(models.Model):
     """Komentář k materiálu."""
@@ -300,6 +308,8 @@ class SearchLog(models.Model):
     year_filter = models.CharField(max_length=120, blank=True, default='', verbose_name=_('Filtr ročníku'))
     subject_filter = models.CharField(max_length=220, blank=True, default='', verbose_name=_('Filtr předmětu'))
     timestamp = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_('Čas'))
+    duration_ms = models.PositiveIntegerField(null=True, blank=True, verbose_name=_('Doba (ms)'))
+    clicked_result_id = models.PositiveIntegerField(null=True, blank=True, verbose_name=_('Klik na výsledek'))
 
     class Meta:
         verbose_name = _('Log vyhledávání')

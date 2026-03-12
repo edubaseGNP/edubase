@@ -130,3 +130,29 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f'[{self.timestamp:%Y-%m-%d %H:%M}] {self.user} – {self.action}'
+
+
+class Notification(models.Model):
+    """
+    In-app notification for a single user.
+    Created programmatically; displayed in the navbar bell icon.
+    """
+
+    recipient = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+        verbose_name=_('Příjemce'),
+    )
+    verb = models.CharField(max_length=255, verbose_name=_('Zpráva'))
+    target_url = models.CharField(max_length=500, blank=True, default='', verbose_name=_('Odkaz'))
+    is_read = models.BooleanField(default=False, db_index=True, verbose_name=_('Přečteno'))
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name=_('Čas'))
+
+    class Meta:
+        verbose_name = _('Notifikace')
+        verbose_name_plural = _('Notifikace')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.recipient} – {self.verb[:60]}'

@@ -7,12 +7,19 @@ Primary strategy: icontains (substring) across title, description, extracted_tex
 Results are ordered: title matches first, then by recency.
 """
 
+import html as html_module
 import logging
+import re
+import time
 from datetime import timedelta
 
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Case, Count, IntegerField, Q, When
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404, redirect
 from django.utils import timezone
+from django.utils.safestring import mark_safe
+from django.views import View
 from django.views.generic import ListView
 
 from .models import Material, SearchLog
@@ -22,7 +29,50 @@ logger = logging.getLogger(__name__)
 MAX_RESULTS = 50
 MIN_QUERY_LENGTH = 2
 LOG_COOLDOWN_MINUTES = 5  # don't log same query from same user within this window
+EXCERPT_WINDOW = 200       # chars of context around the first match
 
+
+# ---------------------------------------------------------------------------
+# Excerpt / highlight helpers
+# ---------------------------------------------------------------------------
+
+def _make_excerpt(text: str, query: str) -> str:
+    """Return an HTML-safe excerpt with query terms wrapped in <mark>."""
+    if not text:
+        return ''
+    lower_text = text.lower()
+    lower_query = query.lower()
+    pos = lower_text.find(lower_query)
+    if pos == -1:
+        snippet = text[:EXCERPT_WINDOW].strip()
+        prefix = suffix = ''
+    else:
+        start = max(0, pos - 80)
+        end = min(len(text), pos + len(query) + 120)
+        snippet = text[start:end].strip()
+        prefix = '…' if start > 0 else ''
+        suffix = '…' if end < len(text) else ''
+
+    safe = html_module.escape(snippet)
+    escaped_query = re.escape(html_module.escape(query))
+    highlighted = re.sub(
+        escaped_query,
+        lambda m: f'<mark class="bg-yellow-200 rounded px-0.5">{m.group()}</mark>',
+        safe,
+        flags=re.IGNORECASE,
+    )
+    return mark_safe(f'{prefix}{highlighted}{suffix}')
+
+
+def _hit_count(material: Material, query: str) -> int:
+    """Count how many times query appears across title + description + extracted_text."""
+    combined = f'{material.title} {material.description} {material.extracted_text}'.lower()
+    return combined.count(query.lower())
+
+
+# ---------------------------------------------------------------------------
+# Search view
+# ---------------------------------------------------------------------------
 
 class MaterialSearchView(LoginRequiredMixin, ListView):
     template_name = 'materials/search_results.html'
@@ -69,6 +119,7 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
         )
 
     def get_context_data(self, **kwargs):
+        t_start = time.monotonic()
         ctx = super().get_context_data(**kwargs)
         query = self.request.GET.get('q', '').strip().lstrip('/').strip()
         year_filter = self.request.GET.get('year', '')
@@ -85,6 +136,18 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
             .select_related('school_year')
             .order_by('school_year__name', 'name')
         )
+
+        # Annotate each result with hit_count and excerpt
+        if query:
+            enriched = []
+            for mat in ctx['object_list']:
+                mat._hit_count = _hit_count(mat, query)
+                mat._excerpt = _make_excerpt(mat.extracted_text or mat.description, query)
+                enriched.append(mat)
+            ctx['object_list'] = enriched
+
+        duration_ms = int((time.monotonic() - t_start) * 1000)
+        ctx['duration_ms'] = duration_ms
 
         # Log the search (only when a real query was submitted)
         if query and len(query) >= MIN_QUERY_LENGTH:
@@ -103,6 +166,7 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
                         results_count=results_count,
                         year_filter=year_filter,
                         subject_filter=subject_filter,
+                        duration_ms=duration_ms,
                     )
             except Exception:
                 logger.exception('Failed to save search log')
@@ -119,3 +183,31 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
             )
 
         return ctx
+
+
+# ---------------------------------------------------------------------------
+# Click tracking endpoint
+# ---------------------------------------------------------------------------
+
+class SearchClickView(LoginRequiredMixin, View):
+    """Record which search result the user clicked."""
+
+    def post(self, request):
+        material_id = request.POST.get('material_id', '').strip()
+        query = request.POST.get('q', '').strip()
+        next_url = request.POST.get('next', '/')
+
+        if material_id.isdigit() and query:
+            try:
+                log = (
+                    SearchLog.objects
+                    .filter(user=request.user, query__iexact=query)
+                    .order_by('-timestamp')
+                    .first()
+                )
+                if log and not log.clicked_result_id:
+                    SearchLog.objects.filter(pk=log.pk).update(clicked_result_id=int(material_id))
+            except Exception:
+                logger.exception('Failed to record search click')
+
+        return redirect(next_url)

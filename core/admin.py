@@ -8,7 +8,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 
-from .models import AuditLog, SiteConfig
+from .models import AuditLog, Notification, SiteConfig
 
 # Colors for action badges
 _ACTION_COLORS = {
@@ -144,4 +144,32 @@ class AuditLogAdmin(ModelAdmin):
         return False
 
     def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(Notification)
+class NotificationAdmin(ModelAdmin):
+    list_display = ['recipient', 'verb_short', 'is_read', 'created_at']
+    list_filter = ['is_read']
+    search_fields = ['recipient__email', 'verb']
+    readonly_fields = ['recipient', 'verb', 'target_url', 'is_read', 'created_at']
+    date_hierarchy = 'created_at'
+    actions = ['mark_read', 'mark_unread']
+
+    @admin.display(description=_('Zpráva'))
+    def verb_short(self, obj):
+        return obj.verb[:80] + ('…' if len(obj.verb) > 80 else '')
+
+    @admin.action(description=_('Označit jako přečtené'))
+    def mark_read(self, request, queryset):
+        queryset.update(is_read=True)
+
+    @admin.action(description=_('Označit jako nepřečtené'))
+    def mark_unread(self, request, queryset):
+        queryset.update(is_read=False)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
         return False

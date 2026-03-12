@@ -61,6 +61,12 @@ def on_material_save(sender, instance, created, **kwargs):
         except Exception:
             logger.exception('Failed to send teacher notification for Material %d', instance.pk)
 
+        # In-app notification to subject teachers
+        try:
+            _notify_teachers_in_app(instance)
+        except Exception:
+            logger.exception('Failed to send in-app notification for Material %d', instance.pk)
+
 
 def _notify_teachers_new_material(material):
     """Send email to all teachers of the subject using SiteConfig SMTP settings."""
@@ -108,6 +114,27 @@ def _notify_teachers_new_material(material):
     msg.send(fail_silently=True)
 
 
+def _notify_teachers_in_app(material):
+    """Create in-app Notification for all teachers assigned to the subject."""
+    from django.urls import reverse
+    from core.models import Notification
+
+    teachers = list(material.subject.teachers.all())
+    if not teachers:
+        return
+
+    try:
+        url = reverse('materials:material_detail', kwargs={'pk': material.pk})
+    except Exception:
+        url = ''
+
+    verb = f'Nový materiál v {material.subject.name}: {material.title}'
+    Notification.objects.bulk_create([
+        Notification(recipient=teacher, verb=verb, target_url=url)
+        for teacher in teachers
+    ], ignore_conflicts=True)
+
+
 @receiver(post_delete, sender='materials.Material')
 def on_material_delete(sender, instance, **kwargs):
     """Log deletion. The actual file cleanup happens via storage."""
@@ -152,6 +179,16 @@ def on_vip_grant(sender, instance, created, **kwargs):
         )
     except Exception:
         logger.exception('Failed to write VIP grant audit log')
+
+    # In-app notification to the student
+    try:
+        from core.models import Notification
+        Notification.objects.create(
+            recipient=instance.user,
+            verb=f'Byl vám udělen VIP přístup k předmětu {instance.subject.name}',
+        )
+    except Exception:
+        logger.exception('Failed to create VIP in-app notification')
 
 
 @receiver(post_delete, sender='materials.SubjectVIP')
