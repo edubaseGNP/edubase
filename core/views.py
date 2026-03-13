@@ -117,7 +117,15 @@ def profile(request):
             user.enrollment_year = int(enrollment_year)
         elif not enrollment_year:
             user.enrollment_year = None
-        user.save(update_fields=['first_name', 'last_name', 'privacy_level', 'enrollment_year'])
+        update_fields = ['first_name', 'last_name', 'privacy_level', 'enrollment_year']
+        avatar_file = request.FILES.get('avatar')
+        if avatar_file:
+            user.avatar = avatar_file
+            update_fields.append('avatar')
+        elif request.POST.get('remove_avatar'):
+            user.avatar = None
+            update_fields.append('avatar')
+        user.save(update_fields=update_fields)
         messages.success(request, _('Profil byl uložen.'))
         return redirect('core:profile')
 

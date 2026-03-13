@@ -40,6 +40,12 @@ class User(AbstractUser):
         verbose_name=_('Rok nástupu'),
         help_text=_('Zobrazuje se při anonymním režimu zobrazení.'),
     )
+    avatar = models.ImageField(
+        upload_to='avatars/',
+        null=True,
+        blank=True,
+        verbose_name=_('Profilový obrázek'),
+    )
     # Student homepage: up to 4 pinned subjects for quick access
     favorite_subjects = models.ManyToManyField(
         'materials.SubjectYear',

@@ -90,7 +90,7 @@
     {% if chart_uploads %}
     <div class="chart-card">
       <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin-bottom: 1rem;">
-        {% trans "Nahrávání materiálů – posledních 30 dní" %}
+        {% trans "Nahrávání materiálů" %} – {% trans "posledních 30 dní" %}
       </h2>
       <canvas id="uploadsChart" height="90"></canvas>
     </div>
@@ -189,7 +189,7 @@
   <div class="chart-card" style="margin-bottom: 2rem;">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
       <h2 style="font-size: 0.9rem; font-weight: 600; color: #374151; margin:0;">
-        🛡️ {% trans "Audit log – posledních 20 událostí" %}
+        🛡️ {% trans "Audit log" %} – {% trans "posledních 20 událostí" %}
       </h2>
       {% if audit_warnings %}
       <span style="background:#fee2e2;color:#991b1b;padding:2px 10px;border-radius:12px;font-size:0.75rem;font-weight:600;">

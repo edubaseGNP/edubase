@@ -23,27 +23,33 @@
 
       <!-- Action buttons -->
       <div class="flex flex-wrap gap-2 flex-shrink-0">
-        <!-- Google Classroom link -->
+        <!-- Google Classroom link – visible to everyone if set -->
         {% if subject.classroom_link %}
           <a href="{{ subject.classroom_link }}" target="_blank" rel="noopener"
              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm hover:bg-blue-100 transition">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1 17.5v-11l8 5.5-8 5.5z"/></svg>
-            {% trans "Google Classroom" %}
+            🎓 {% trans "Google Classroom" %}
           </a>
         {% endif %}
+
+        <!-- ZIP download -->
         <a href="{% url 'materials:subject_zip' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
-           class="btn-secondary text-sm">
-          📦 {% trans "Stáhnout ZIP" %}
+           class="btn-secondary text-sm"
+           title="{% trans 'Stáhne všechny materiály tohoto předmětu najednou jako jeden ZIP soubor' %}">
+          📦 {% trans "Stáhnout vše (.zip)" %}
         </a>
+
         {% if can_upload %}
           <a href="{% url 'materials:upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
              class="btn-primary text-sm">
             + {% trans "Nahrát" %}
           </a>
-          <a href="{% url 'materials:bulk_upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
-             class="btn-secondary text-sm">
-            📁 {% trans "Hromadný upload" %}
-          </a>
+          <!-- Bulk upload only for teachers / admins -->
+          {% if request.user.is_teacher or request.user.is_admin_role %}
+            <a href="{% url 'materials:bulk_upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
+               class="btn-secondary text-sm">
+              📁 {% trans "Hromadný upload" %}
+            </a>
+          {% endif %}
         {% endif %}
       </div>
     </div>
@@ -97,11 +103,8 @@
                   {% if mat.file_type_label %}
                     <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{{ mat.file_type_label }}</span>
                   {% endif %}
-                  {% if mat.ocr_processed %}
-                    <span class="text-xs text-green-600" title="{% trans 'Text extrahován – materiál je prohledávatelný' %}">✓ OCR</span>
-                  {% endif %}
                   {% if mat.external_url %}
-                    <span class="text-xs text-blue-500" title="{% trans 'Externý odkaz' %}">🔗</span>
+                    <span class="text-xs text-blue-500" title="{% trans 'Externý odkaz na dokument' %}">🔗</span>
                   {% endif %}
                 </div>
 
@@ -119,14 +122,8 @@
                     </a>
                   {% endif %}
                   <span>{{ mat.created_at|date:"j. n. Y" }}</span>
-                  {% if mat.filename %}
-                    <span class="text-gray-300 hidden sm:inline font-mono">{{ mat.filename|truncatechars:30 }}</span>
-                  {% endif %}
-                  <span title="{% trans 'Stažení' %}">⬇ {{ mat.download_count }}</span>
-                  <span title="{% trans 'Líbí se' %}">❤ {{ mat.like_count }}</span>
-                  {% if mat.reading_time %}
-                    <span>~{{ mat.reading_time }} min</span>
-                  {% endif %}
+                  <span title="{% trans 'Počet stažení' %}">⬇ {{ mat.download_count }}</span>
+                  <span title="{% trans 'Líbí se mi' %}">❤ {{ mat.like_count }}</span>
                 </div>
 
                 <!-- Tags -->
@@ -141,19 +138,25 @@
                 {% endif %}
               </a>
 
-              <!-- Quick actions column -->
-              <div class="flex flex-col justify-center gap-1 pr-3 pl-1 flex-shrink-0">
+              <!-- Right column: OCR badge + actions -->
+              <div class="flex flex-col justify-center items-end gap-1 pr-3 pl-2 flex-shrink-0">
+                {% if mat.ocr_processed %}
+                  <span class="text-xs text-green-600 font-medium cursor-default"
+                        title="{% trans 'OCR – Optical Character Recognition: text byl automaticky extrahován, materiál je plně prohledávatelný' %}">
+                    ✓ OCR
+                  </span>
+                {% endif %}
                 {% if mat.open_url %}
                   <a href="{{ mat.open_url }}" target="_blank" rel="noopener"
-                     class="text-xs text-gray-400 hover:text-primary-600 transition px-2 py-1 rounded hover:bg-primary-50"
-                     title="{% trans 'Otevřít' %}">↗</a>
+                     class="text-xs text-gray-400 hover:text-primary-600 transition px-1.5 py-1 rounded hover:bg-primary-50"
+                     title="{% trans 'Otevřít' %}" onclick="event.stopPropagation()">↗</a>
                 {% endif %}
                 {% if can_upload %}
                   <form method="post" action="{% url 'materials:material_delete' pk=mat.pk %}"
                         onsubmit="return confirm('{% trans "Opravdu smazat?" %}')">
                     {% csrf_token %}
                     <button type="submit"
-                            class="text-xs text-gray-300 hover:text-red-500 transition px-2 py-1 rounded hover:bg-red-50"
+                            class="text-xs text-gray-300 hover:text-red-500 transition px-1.5 py-1 rounded hover:bg-red-50"
                             title="{% trans 'Smazat' %}">✕</button>
                   </form>
                 {% endif %}

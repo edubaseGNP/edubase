@@ -64,7 +64,7 @@ class UserAdmin(ModelAdmin, BaseUserAdmin):
 
     fieldsets = BaseUserAdmin.fieldsets + (
         (_('EduBase'), {
-            'fields': ('role', 'privacy_level', 'enrollment_year'),
+            'fields': ('role', 'privacy_level', 'enrollment_year', 'avatar'),
         }),
     )
     add_fieldsets = BaseUserAdmin.add_fieldsets + (

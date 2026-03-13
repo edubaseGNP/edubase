@@ -183,6 +183,7 @@ class MaterialDetailView(LoginRequiredMixin, DetailView):
         ctx['user_liked'] = material.likes.filter(user=self.request.user).exists()
         ctx['versions'] = material.versions.order_by('-version') if not material.parent else []
         ctx['can_upload'] = self.request.user.can_upload_to(material.subject)
+        ctx['material_abs_url'] = self.request.build_absolute_uri()
         return ctx
 
 
@@ -266,7 +267,7 @@ class BulkUploadView(LoginRequiredMixin, View):
 
     def get(self, request, year_slug, subject_slug):
         subject = get_object_or_404(SubjectYear, school_year__slug=year_slug, subject__slug=subject_slug)
-        if not request.user.can_upload_to(subject):
+        if not (request.user.is_teacher or request.user.is_admin_role):
             raise PermissionDenied
         from django.conf import settings as _s
         from .models import MaterialType
@@ -278,7 +279,7 @@ class BulkUploadView(LoginRequiredMixin, View):
 
     def post(self, request, year_slug, subject_slug):
         subject = get_object_or_404(SubjectYear, school_year__slug=year_slug, subject__slug=subject_slug)
-        if not request.user.can_upload_to(subject):
+        if not (request.user.is_teacher or request.user.is_admin_role):
             raise PermissionDenied
 
         from django.conf import settings as _s

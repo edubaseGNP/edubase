@@ -82,16 +82,14 @@
         <span class="text-sm text-gray-400 italic">{% trans "Soubor není k dispozici." %}</span>
       {% endif %}
 
-      <!-- Share to Google Classroom -->
-      {% if request.user.is_teacher or request.user.is_admin_role %}
-        {% with share_url=request.build_absolute_uri %}
-          <a href="https://classroom.google.com/share?url={{ request.build_absolute_uri|urlencode }}&title={{ material.title|urlencode }}"
-             target="_blank" rel="noopener"
-             class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm hover:bg-green-100 transition"
-             title="{% trans 'Sdílet do Google Classroom' %}">
-            🎓 {% trans "Sdílet do Classroom" %}
-          </a>
-        {% endwith %}
+      <!-- Share to Google Classroom – only for teachers -->
+      {% if request.user.is_teacher %}
+        <a href="https://classroom.google.com/share?url={{ material_abs_url|urlencode }}&title={{ material.title|urlencode }}"
+           target="_blank" rel="noopener"
+           class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm hover:bg-green-100 transition"
+           title="{% trans 'Sdílet odkaz na tento materiál do Google Classroom' %}">
+          🎓 {% trans "Sdílet do Classroom" %}
+        </a>
       {% endif %}
 
       <!-- Like button -->
