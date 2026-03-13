@@ -143,7 +143,18 @@ CELERY_TASK_TIME_LIMIT = 300  # 5 min hard limit per task
 # File upload settings
 # ---------------------------------------------------------------------------
 MATERIAL_MAX_UPLOAD_MB = config('MATERIAL_MAX_UPLOAD_MB', default=50, cast=int)
-MATERIAL_ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
+MATERIAL_ALLOWED_TYPES = [
+    'application/pdf',
+    'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+    # MS Office
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',   # .docx
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation', # .pptx
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',         # .xlsx
+    # LibreOffice / ODF
+    'application/vnd.oasis.opendocument.text',         # .odt
+    'application/vnd.oasis.opendocument.spreadsheet',  # .ods
+    'application/vnd.oasis.opendocument.presentation', # .odp
+]
 IMAGE_COMPRESS_MAX_WIDTH = 1920
 IMAGE_COMPRESS_QUALITY = 85
 

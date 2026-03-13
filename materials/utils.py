@@ -112,3 +112,101 @@ def _pdf_ocr_extract(filepath: str, dpi: int = 150, lang: str = 'ces+eng') -> st
     except Exception:
         logger.exception('PDF OCR fallback failed for %s', filepath)
         return ''
+
+
+# ---------------------------------------------------------------------------
+# Office document text extraction
+# ---------------------------------------------------------------------------
+
+def extract_text_from_docx(filepath: str) -> str:
+    """Extract plain text from a .docx file using python-docx."""
+    try:
+        from docx import Document
+        doc = Document(filepath)
+        parts = []
+        for para in doc.paragraphs:
+            if para.text.strip():
+                parts.append(para.text)
+        # Also extract text from tables
+        for table in doc.tables:
+            for row in table.rows:
+                row_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                if row_texts:
+                    parts.append(' | '.join(row_texts))
+        return '\n'.join(parts).strip()
+    except Exception:
+        logger.exception('docx extraction failed for %s', filepath)
+        return ''
+
+
+def extract_text_from_pptx(filepath: str) -> str:
+    """Extract plain text from a .pptx file using python-pptx."""
+    try:
+        from pptx import Presentation
+        prs = Presentation(filepath)
+        parts = []
+        for slide_num, slide in enumerate(prs.slides, 1):
+            slide_texts = []
+            for shape in slide.shapes:
+                if hasattr(shape, 'text') and shape.text.strip():
+                    slide_texts.append(shape.text.strip())
+            if slide_texts:
+                parts.append(f'--- Snímek {slide_num} ---\n' + '\n'.join(slide_texts))
+        return '\n\n'.join(parts).strip()
+    except Exception:
+        logger.exception('pptx extraction failed for %s', filepath)
+        return ''
+
+
+def extract_text_from_xlsx(filepath: str) -> str:
+    """Extract cell values from a .xlsx file using openpyxl."""
+    try:
+        import openpyxl
+        wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+        parts = []
+        for sheet in wb.worksheets:
+            sheet_parts = [f'=== {sheet.title} ===']
+            for row in sheet.iter_rows(values_only=True):
+                row_vals = [str(v) for v in row if v is not None and str(v).strip()]
+                if row_vals:
+                    sheet_parts.append(' | '.join(row_vals))
+            if len(sheet_parts) > 1:
+                parts.append('\n'.join(sheet_parts))
+        wb.close()
+        return '\n\n'.join(parts).strip()
+    except Exception:
+        logger.exception('xlsx extraction failed for %s', filepath)
+        return ''
+
+
+def extract_text_from_odf(filepath: str) -> str:
+    """Extract text from ODF files (.odt, .ods, .odp) using odfpy."""
+    try:
+        from odf.opendocument import load
+        from odf import text as odftext
+        from odf.teletype import extractText
+        doc = load(filepath)
+        texts = []
+        for elem in doc.body.getElementsByType(odftext.P):
+            t = extractText(elem).strip()
+            if t:
+                texts.append(t)
+        return '\n'.join(texts).strip()
+    except Exception:
+        logger.exception('ODF extraction failed for %s', filepath)
+        return ''
+
+
+def extract_text_from_office(filepath: str) -> str:
+    """Dispatch to the correct office extractor based on file extension."""
+    import os
+    ext = os.path.splitext(filepath)[1].lower()
+    if ext == '.docx':
+        return extract_text_from_docx(filepath)
+    if ext == '.pptx':
+        return extract_text_from_pptx(filepath)
+    if ext == '.xlsx':
+        return extract_text_from_xlsx(filepath)
+    if ext in ('.odt', '.ods', '.odp'):
+        return extract_text_from_odf(filepath)
+    return ''

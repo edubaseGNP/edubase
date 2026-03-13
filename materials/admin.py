@@ -141,12 +141,19 @@ class SubjectAdmin(ModelAdmin):
 
 @admin.register(SubjectYear)
 class SubjectYearAdmin(ModelAdmin):
-    list_display = ['subject', 'school_year']
+    list_display = ['subject', 'school_year', 'classroom_link_display']
     list_filter = ['school_year']
     search_fields = ['subject__name', 'school_year__name']
     autocomplete_fields = ['subject', 'school_year']
     filter_horizontal = ['teachers']
     inlines = [SubjectVIPInline, MaterialInline]
+    fields = ['subject', 'school_year', 'teachers', 'classroom_link']
+
+    @admin.display(description=_('Classroom'))
+    def classroom_link_display(self, obj):
+        if obj.classroom_link:
+            return '✓'
+        return '–'
 
 
 @admin.register(MaterialType)
@@ -174,7 +181,7 @@ class MaterialAdmin(ModelAdmin):
     readonly_fields = ['extracted_text', 'ocr_processed', 'created_at', 'updated_at']
     filter_horizontal = ['tags']
     fieldsets = (
-        (None, {'fields': ('title', 'subject', 'material_type', 'file', 'description', 'tags')}),
+        (None, {'fields': ('title', 'icon', 'subject', 'material_type', 'file', 'external_url', 'description', 'tags')}),
         (_('Autor a čas'), {'fields': ('author', 'created_at', 'updated_at', 'is_published')}),
         (_('AI / OCR'), {
             'fields': ('ocr_processed', 'extracted_text'),

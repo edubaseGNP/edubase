@@ -84,6 +84,10 @@ class MaterialUploadView(LoginRequiredMixin, View):
         if not request.user.can_upload_to(subject):
             raise PermissionDenied
 
+    def _icon_context(self):
+        from .icons import MATERIAL_ICONS
+        return {'material_icons': MATERIAL_ICONS}
+
     def get(self, request, year_slug=None, subject_slug=None):
         subject = self._get_subject(year_slug, subject_slug)
         if subject:
@@ -91,7 +95,9 @@ class MaterialUploadView(LoginRequiredMixin, View):
         form = MaterialUploadForm(user=request.user)
         if subject:
             form.fields['subject'].initial = subject
-        return render(request, self.template_name, {'form': form, 'subject': subject})
+        ctx = {'form': form, 'subject': subject}
+        ctx.update(self._icon_context())
+        return render(request, self.template_name, ctx)
 
     def post(self, request, year_slug=None, subject_slug=None):
         subject = self._get_subject(year_slug, subject_slug)
@@ -104,7 +110,7 @@ class MaterialUploadView(LoginRequiredMixin, View):
             material.author = request.user
 
             # Compress image before saving
-            if material.is_image or (material.file and _is_image_ext(material.file.name)):
+            if material.file and _is_image_ext(material.file.name):
                 from django.conf import settings as _s
                 compress_image_file(
                     material.file,
@@ -113,22 +119,29 @@ class MaterialUploadView(LoginRequiredMixin, View):
                 )
 
             material.save()
+            form.save_m2m()
 
             # Explicit audit log entry WITH request (includes IP)
+            source = 'odkaz' if material.external_url and not material.file else 'soubor'
             audit_log(
                 request.user,
                 AuditLog.Action.UPLOAD,
                 material,
-                description=f'Upload: {material.title}',
+                description=f'Upload ({source}): {material.title}',
                 request=request,
             )
 
-            messages.success(request, _('Materiál byl úspěšně nahrán. Probíhá extrakce textu…'))
+            if material.file:
+                messages.success(request, _('Materiál byl úspěšně nahrán. Probíhá extrakce textu…'))
+            else:
+                messages.success(request, _('Odkaz byl úspěšně přidán.'))
             return redirect('materials:subject_detail',
                             year_slug=material.subject.school_year.slug,
                             subject_slug=material.subject.slug)
 
-        return render(request, self.template_name, {'form': form, 'subject': subject})
+        ctx = {'form': form, 'subject': subject}
+        ctx.update(self._icon_context())
+        return render(request, self.template_name, ctx)
 
     def _get_subject(self, year_slug, subject_slug):
         if year_slug and subject_slug:

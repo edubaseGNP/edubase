@@ -36,6 +36,9 @@ def extract_text_task(self, material_id: int) -> str:
             text = extract_text_from_pdf(filepath)
         elif material.is_image:
             text = extract_text_from_image(filepath)
+        elif material.is_office:
+            from .utils import extract_text_from_office
+            text = extract_text_from_office(filepath)
         else:
             logger.info('extract_text_task: unsupported file type for Material %d', material_id)
             text = ''

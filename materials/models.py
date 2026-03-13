@@ -78,6 +78,14 @@ class SubjectYear(models.Model):
         verbose_name=_('Učitelé'),
     )
 
+    classroom_link = models.URLField(
+        blank=True,
+        default='',
+        max_length=500,
+        verbose_name=_('Google Classroom odkaz'),
+        help_text=_('Volitelný odkaz na třídu v Google Classroom (vyplní učitel)'),
+    )
+
     class Meta:
         verbose_name = _('Předmět v ročníku')
         verbose_name_plural = _('Předměty v ročnících')
@@ -133,7 +141,7 @@ class Tag(models.Model):
 
 
 class Material(models.Model):
-    """Nahraný materiál – PDF nebo obrázek."""
+    """Nahraný materiál – PDF, obrázek, Office dokument nebo externí odkaz."""
 
     title = models.CharField(max_length=300, verbose_name=_('Název'))
     subject = models.ForeignKey(
@@ -148,9 +156,23 @@ class Material(models.Model):
         related_name='materials',
         verbose_name=_('Typ'),
     )
+    icon = models.CharField(
+        max_length=20,
+        default='📄',
+        verbose_name=_('Ikona'),
+        help_text=_('Emoji ikona materiálu'),
+    )
     file = models.FileField(
         upload_to=material_upload_path,
+        blank=True,
         verbose_name=_('Soubor'),
+    )
+    external_url = models.URLField(
+        blank=True,
+        default='',
+        max_length=1000,
+        verbose_name=_('Externí odkaz'),
+        help_text=_('Odkaz na Google Docs, Slides, Sheets apod. (místo souboru)'),
     )
     description = models.TextField(blank=True, verbose_name=_('Popis'))
 
@@ -215,6 +237,8 @@ class Material(models.Model):
 
     @property
     def file_extension(self):
+        if not self.filename:
+            return ''
         _, ext = os.path.splitext(self.filename)
         return ext.lower()
 
@@ -225,6 +249,72 @@ class Material(models.Model):
     @property
     def is_image(self):
         return self.file_extension in ('.jpg', '.jpeg', '.png', '.gif', '.webp')
+
+    @property
+    def is_office(self):
+        return self.file_extension in ('.docx', '.pptx', '.xlsx', '.odt', '.ods', '.odp')
+
+    @property
+    def is_external(self):
+        return bool(self.external_url and not self.file)
+
+    @property
+    def is_google_doc(self):
+        return 'docs.google.com/document' in self.external_url
+
+    @property
+    def is_google_sheet(self):
+        return 'docs.google.com/spreadsheets' in self.external_url
+
+    @property
+    def is_google_slides(self):
+        return 'docs.google.com/presentation' in self.external_url
+
+    @property
+    def display_icon(self):
+        """Return user-set icon, or auto-detect from file/URL type if still default."""
+        if self.icon and self.icon != '📄':
+            return self.icon
+        # Auto-detect from source type
+        if self.is_google_doc:
+            return '📝'
+        if self.is_google_sheet:
+            return '📊'
+        if self.is_google_slides:
+            return '🎞️'
+        if self.is_image:
+            return '🖼️'
+        ext = self.file_extension
+        if ext in ('.docx', '.odt'):
+            return '📝'
+        if ext in ('.xlsx', '.ods'):
+            return '📊'
+        if ext in ('.pptx', '.odp'):
+            return '🎞️'
+        return '📄'
+
+    @property
+    def file_type_label(self):
+        """Short label for the file type badge."""
+        if self.is_google_doc:
+            return 'Docs'
+        if self.is_google_sheet:
+            return 'Sheets'
+        if self.is_google_slides:
+            return 'Slides'
+        if self.external_url:
+            return 'Odkaz'
+        ext = self.file_extension.lstrip('.')
+        return ext.upper() if ext else ''
+
+    @property
+    def open_url(self):
+        """Primary URL to open/view the material."""
+        if self.external_url:
+            return self.external_url
+        if self.file:
+            return self.file.url
+        return ''
 
     @property
     def reading_time(self):

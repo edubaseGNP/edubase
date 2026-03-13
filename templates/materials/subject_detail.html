@@ -4,38 +4,54 @@
 {% block title %}{{ subject.name }} – EduBase{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
   <!-- Header -->
-  <div class="flex items-center justify-between mb-6">
-    <div>
-      <p class="text-sm text-gray-500">
-        <a href="{% url 'materials:school_year_list' %}" class="hover:underline">{% trans "Materiály" %}</a>
-        › {{ subject.school_year.name }}
-      </p>
-      <h1 class="text-2xl font-bold text-gray-900">{{ subject.name }}</h1>
-    </div>
-    <div class="flex flex-wrap gap-2">
-      <a href="{% url 'materials:subject_zip' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
-         class="btn-secondary text-sm">
-        📦 {% trans "Stáhnout ZIP" %}
-      </a>
-      {% if can_upload %}
-        <a href="{% url 'materials:upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
-           class="btn-primary text-sm">
-          {% trans "+ Nahrát materiál" %}
-        </a>
-        <a href="{% url 'materials:bulk_upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
+  <div class="mb-6">
+    <p class="text-xs text-gray-400 mb-1">
+      <a href="{% url 'materials:school_year_list' %}" class="hover:underline">{% trans "Materiály" %}</a>
+      <span class="mx-1">›</span>
+      <span>{{ subject.school_year.name }}</span>
+    </p>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">{{ subject.name }}</h1>
+        {% if subject.description %}
+          <p class="text-sm text-gray-500 mt-0.5">{{ subject.description }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Action buttons -->
+      <div class="flex flex-wrap gap-2 flex-shrink-0">
+        <!-- Google Classroom link -->
+        {% if subject.classroom_link %}
+          <a href="{{ subject.classroom_link }}" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm hover:bg-blue-100 transition">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm-1 17.5v-11l8 5.5-8 5.5z"/></svg>
+            {% trans "Google Classroom" %}
+          </a>
+        {% endif %}
+        <a href="{% url 'materials:subject_zip' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
            class="btn-secondary text-sm">
-          📁 {% trans "Hromadný upload" %}
+          📦 {% trans "Stáhnout ZIP" %}
         </a>
-      {% endif %}
+        {% if can_upload %}
+          <a href="{% url 'materials:upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
+             class="btn-primary text-sm">
+            + {% trans "Nahrát" %}
+          </a>
+          <a href="{% url 'materials:bulk_upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
+             class="btn-secondary text-sm">
+            📁 {% trans "Hromadný upload" %}
+          </a>
+        {% endif %}
+      </div>
     </div>
   </div>
 
   <!-- Tag filter bar -->
   {% if all_tags %}
-    <div class="flex flex-wrap gap-2 mb-6">
+    <div class="flex flex-wrap gap-1.5 mb-6">
       <a href="?" class="text-xs px-3 py-1 rounded-full border transition-colors
          {% if not active_tag %}bg-primary-600 text-white border-primary-600{% else %}bg-white text-gray-600 border-gray-300 hover:border-primary-400{% endif %}">
         {% trans "Vše" %}
@@ -53,47 +69,109 @@
   {% regroup materials by material_type as grouped %}
   {% for group in grouped %}
     <div class="mb-8">
-      <h2 class="text-lg font-semibold text-gray-700 mb-3 pb-1 border-b border-gray-200">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3 pb-1 border-b border-gray-200">
         {{ group.grouper.name }}
+        <span class="ml-1 text-gray-400 font-normal normal-case">({{ group.list|length }})</span>
       </h2>
       <div class="space-y-2">
         {% for mat in group.list %}
-          <div class="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-100 hover:border-gray-300 transition-colors">
-            <a href="{% url 'materials:material_detail' pk=mat.pk %}" class="flex items-center gap-3 flex-1 min-w-0">
-              <span class="text-lg">{% if mat.is_pdf %}📄{% else %}🖼️{% endif %}</span>
-              <div class="min-w-0">
-                <p class="text-sm font-medium text-gray-800 truncate">{{ mat.title }}</p>
-                <p class="text-xs text-gray-400">
-                  {% if mat.author %}<a href="{% url 'users:profile' pk=mat.author.pk %}" class="hover:underline hover:text-primary-600">{{ mat.author.get_display_name }}</a>{% else %}–{% endif %}
-                  · {{ mat.created_at|date:"j. n. Y" }}
-                  · ⬇ {{ mat.download_count }}
-                  · ❤ {{ mat.like_count }}
-                  {% if mat.ocr_processed %}<span class="text-green-500 ml-1">✓ OCR</span>{% endif %}
-                  {% if mat.version > 1 %}<span class="text-blue-400 ml-1">v{{ mat.version }}</span>{% endif %}
-                </p>
+          <div class="bg-white rounded-xl border border-gray-100 hover:border-primary-200 hover:shadow-sm transition-all duration-150">
+            <div class="flex items-stretch">
+
+              <!-- Icon column -->
+              <a href="{% url 'materials:material_detail' pk=mat.pk %}"
+                 class="flex-shrink-0 flex items-center justify-center w-14 text-2xl rounded-l-xl bg-gray-50 border-r border-gray-100 hover:bg-primary-50 transition-colors select-none">
+                {{ mat.display_icon }}
+              </a>
+
+              <!-- Content -->
+              <a href="{% url 'materials:material_detail' pk=mat.pk %}" class="flex-1 min-w-0 px-4 py-3 group">
+                <!-- Title row -->
+                <div class="flex items-center flex-wrap gap-2 mb-0.5">
+                  <span class="text-sm font-semibold text-gray-900 group-hover:text-primary-700 transition-colors leading-tight">
+                    {{ mat.title }}
+                  </span>
+                  {% if mat.version > 1 %}
+                    <span class="text-xs bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">v{{ mat.version }}</span>
+                  {% endif %}
+                  {% if mat.file_type_label %}
+                    <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-mono">{{ mat.file_type_label }}</span>
+                  {% endif %}
+                  {% if mat.ocr_processed %}
+                    <span class="text-xs text-green-600" title="{% trans 'Text extrahován – materiál je prohledávatelný' %}">✓ OCR</span>
+                  {% endif %}
+                  {% if mat.external_url %}
+                    <span class="text-xs text-blue-500" title="{% trans 'Externý odkaz' %}">🔗</span>
+                  {% endif %}
+                </div>
+
+                <!-- Description (if available) -->
+                {% if mat.description %}
+                  <p class="text-xs text-gray-500 line-clamp-1 mb-1">{{ mat.description }}</p>
+                {% endif %}
+
+                <!-- Meta row -->
+                <div class="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-gray-400">
+                  {% if mat.author %}
+                    <a href="{% url 'users:profile' pk=mat.author.pk %}"
+                       class="hover:text-primary-600 hover:underline" onclick="event.stopPropagation()">
+                      {{ mat.author.get_display_name }}
+                    </a>
+                  {% endif %}
+                  <span>{{ mat.created_at|date:"j. n. Y" }}</span>
+                  {% if mat.filename %}
+                    <span class="text-gray-300 hidden sm:inline font-mono">{{ mat.filename|truncatechars:30 }}</span>
+                  {% endif %}
+                  <span title="{% trans 'Stažení' %}">⬇ {{ mat.download_count }}</span>
+                  <span title="{% trans 'Líbí se' %}">❤ {{ mat.like_count }}</span>
+                  {% if mat.reading_time %}
+                    <span>~{{ mat.reading_time }} min</span>
+                  {% endif %}
+                </div>
+
+                <!-- Tags -->
                 {% if mat.tags.all %}
-                  <div class="flex flex-wrap gap-1 mt-1">
+                  <div class="flex flex-wrap gap-1 mt-1.5">
                     {% for tag in mat.tags.all %}
-                      <a href="?tag={{ tag.slug }}" class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full hover:bg-primary-100 hover:text-primary-700 transition-colors">#{{ tag.name }}</a>
+                      <a href="?tag={{ tag.slug }}"
+                         class="text-xs px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded-full hover:bg-primary-100 hover:text-primary-700 transition-colors"
+                         onclick="event.stopPropagation()">#{{ tag.name }}</a>
                     {% endfor %}
                   </div>
                 {% endif %}
+              </a>
+
+              <!-- Quick actions column -->
+              <div class="flex flex-col justify-center gap-1 pr-3 pl-1 flex-shrink-0">
+                {% if mat.open_url %}
+                  <a href="{{ mat.open_url }}" target="_blank" rel="noopener"
+                     class="text-xs text-gray-400 hover:text-primary-600 transition px-2 py-1 rounded hover:bg-primary-50"
+                     title="{% trans 'Otevřít' %}">↗</a>
+                {% endif %}
+                {% if can_upload %}
+                  <form method="post" action="{% url 'materials:material_delete' pk=mat.pk %}"
+                        onsubmit="return confirm('{% trans "Opravdu smazat?" %}')">
+                    {% csrf_token %}
+                    <button type="submit"
+                            class="text-xs text-gray-300 hover:text-red-500 transition px-2 py-1 rounded hover:bg-red-50"
+                            title="{% trans 'Smazat' %}">✕</button>
+                  </form>
+                {% endif %}
               </div>
-            </a>
-            {% if can_upload %}
-              <form method="post" action="{% url 'materials:material_delete' pk=mat.pk %}"
-                    onsubmit="return confirm('{% trans "Opravdu smazat?" %}')">
-                {% csrf_token %}
-                <button type="submit" class="ml-4 text-xs text-red-400 hover:text-red-600">{% trans "Smazat" %}</button>
-              </form>
-            {% endif %}
+
+            </div>
           </div>
         {% endfor %}
       </div>
     </div>
   {% empty %}
-    <div class="card text-center text-gray-500">
+    <div class="card text-center text-gray-500 py-12">
+      <p class="text-4xl mb-3">📂</p>
       <p>{% trans "Zatím nejsou žádné materiály." %}</p>
+      {% if can_upload %}
+        <a href="{% url 'materials:upload' year_slug=subject.school_year.slug subject_slug=subject.slug %}"
+           class="btn-primary mt-4 inline-block text-sm">+ {% trans "Nahrát první materiál" %}</a>
+      {% endif %}
     </div>
   {% endfor %}
 
