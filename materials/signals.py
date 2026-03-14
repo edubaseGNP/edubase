@@ -132,6 +132,7 @@ def _notify_teachers_in_app(material):
     Notification.objects.bulk_create([
         Notification(recipient=teacher, verb=verb, target_url=url)
         for teacher in teachers
+        if getattr(teacher, 'notify_on_material', True)
     ], ignore_conflicts=True)
 
 

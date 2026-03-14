@@ -30,6 +30,9 @@ urlpatterns = [
     path('predmet/<int:subject_pk>/vip/udelit/', views.VIPGrantView.as_view(), name='vip_grant'),
     path('vip/<int:pk>/odebrat/', views.VIPRevokeView.as_view(), name='vip_revoke'),
 
+    # Tag autocomplete
+    path('tagy/autocomplete/', views.tag_autocomplete, name='tag_autocomplete'),
+
     # Slug-based routes (catch-all — must come last)
     path('<slug:year_slug>/<slug:subject_slug>/nahrat/',
          views.MaterialUploadView.as_view(), name='upload'),

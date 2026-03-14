@@ -147,6 +147,14 @@ CELERY_TASK_ROUTES = {
 }
 CELERY_TASK_QUEUES_MAX_PRIORITY = 10
 
+from celery.schedules import crontab
+CELERY_BEAT_SCHEDULE = {
+    'weekly-digest': {
+        'task': 'core.tasks.send_weekly_digest',
+        'schedule': crontab(hour=8, minute=0, day_of_week='monday'),
+    },
+}
+
 # ---------------------------------------------------------------------------
 # File upload settings
 # ---------------------------------------------------------------------------

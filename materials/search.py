@@ -145,27 +145,28 @@ class MaterialSearchView(LoginRequiredMixin, ListView):
         duration_ms = int((time.monotonic() - t_start) * 1000)
         ctx['duration_ms'] = duration_ms
 
-        # Log the search (only when a real query was submitted)
+        # Log the search (only when a real query was submitted and user hasn't opted out)
         if query and len(query) >= MIN_QUERY_LENGTH:
             results_count = len(ctx['object_list'])
-            try:
-                cooldown_cutoff = timezone.now() - timedelta(minutes=LOG_COOLDOWN_MINUTES)
-                already_logged = SearchLog.objects.filter(
-                    user=self.request.user,
-                    query__iexact=query,
-                    timestamp__gte=cooldown_cutoff,
-                ).exists()
-                if not already_logged:
-                    SearchLog.objects.create(
-                        query=query,
+            if not getattr(self.request.user, 'search_tracking_opt_out', False):
+                try:
+                    cooldown_cutoff = timezone.now() - timedelta(minutes=LOG_COOLDOWN_MINUTES)
+                    already_logged = SearchLog.objects.filter(
                         user=self.request.user,
-                        results_count=results_count,
-                        year_filter=year_filter,
-                        subject_filter=subject_filter,
-                        duration_ms=duration_ms,
-                    )
-            except Exception:
-                logger.exception('Failed to save search log')
+                        query__iexact=query,
+                        timestamp__gte=cooldown_cutoff,
+                    ).exists()
+                    if not already_logged:
+                        SearchLog.objects.create(
+                            query=query,
+                            user=self.request.user,
+                            results_count=results_count,
+                            year_filter=year_filter,
+                            subject_filter=subject_filter,
+                            duration_ms=duration_ms,
+                        )
+                except Exception:
+                    logger.exception('Failed to save search log')
 
         # Trending searches for empty-state UI
         if not query:

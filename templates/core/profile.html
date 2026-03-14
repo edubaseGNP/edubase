@@ -103,6 +103,44 @@
         </form>
       </div>
 
+      <!-- Notification preferences -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-4">{% trans "Nastavení oznámení" %}</h2>
+        <form method="post" enctype="multipart/form-data" class="space-y-3">
+          {% csrf_token %}
+          {# Hidden fields to preserve other profile fields on submit #}
+          <input type="hidden" name="first_name" value="{{ profile_user.first_name }}">
+          <input type="hidden" name="last_name" value="{{ profile_user.last_name }}">
+          <input type="hidden" name="privacy_level" value="{{ profile_user.privacy_level }}">
+          {% if profile_user.enrollment_year %}
+            <input type="hidden" name="enrollment_year" value="{{ profile_user.enrollment_year }}">
+          {% endif %}
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" name="notify_on_comment" class="mt-0.5 accent-primary-600"
+                   {% if profile_user.notify_on_comment %}checked{% endif %}>
+            <span class="text-sm text-gray-700">{% trans "Upozornit, když někdo okomentuje můj materiál" %}</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" name="notify_on_material" class="mt-0.5 accent-primary-600"
+                   {% if profile_user.notify_on_material %}checked{% endif %}>
+            <span class="text-sm text-gray-700">{% trans "Upozornit na nové materiály v oblíbených předmětech" %}</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" name="email_digest_enabled" class="mt-0.5 accent-primary-600"
+                   {% if profile_user.email_digest_enabled %}checked{% endif %}>
+            <span class="text-sm text-gray-700">{% trans "Dostávat týdenní email přehled" %}</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="checkbox" name="search_tracking_opt_out" class="mt-0.5 accent-primary-600"
+                   {% if profile_user.search_tracking_opt_out %}checked{% endif %}>
+            <span class="text-sm text-gray-700">{% trans "Nezaznamenávat mé vyhledávání do statistik" %}</span>
+          </label>
+          <button type="submit" class="w-full btn-secondary text-sm py-2 mt-1">
+            {% trans "Uložit nastavení" %}
+          </button>
+        </form>
+      </div>
+
     </div>
 
     <!-- Right column: favorites + recent materials -->

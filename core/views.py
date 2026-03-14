@@ -125,6 +125,14 @@ def profile(request):
         elif request.POST.get('remove_avatar'):
             user.avatar = None
             update_fields.append('avatar')
+        # Notification preferences (checkboxes: present = True, absent = False)
+        if hasattr(user, 'notify_on_comment'):
+            user.notify_on_comment = 'notify_on_comment' in request.POST
+            user.notify_on_material = 'notify_on_material' in request.POST
+            user.email_digest_enabled = 'email_digest_enabled' in request.POST
+            user.search_tracking_opt_out = 'search_tracking_opt_out' in request.POST
+            update_fields += ['notify_on_comment', 'notify_on_material',
+                               'email_digest_enabled', 'search_tracking_opt_out']
         user.save(update_fields=update_fields)
         messages.success(request, _('Profil byl uložen.'))
         return redirect('core:profile')

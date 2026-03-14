@@ -72,6 +72,22 @@ services:
       redis:
         condition: service_started
 
+  celery-beat:
+    build: .
+    command: celery -A edubase beat --loglevel=info
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: edubase.settings.dev
+      SKIP_MIGRATE: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   # ---------------------------------------------------------------------------
   # Ollama – lokální AI inference (Vision OCR + text tasks), ZDARMA
   # Odkomentuj a nastav AI_BACKEND=ollama v .env

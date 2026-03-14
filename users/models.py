@@ -54,6 +54,28 @@ class User(AbstractUser):
         verbose_name=_('Oblíbené předměty'),
     )
 
+    # Notification preferences
+    notify_on_comment = models.BooleanField(
+        default=True,
+        verbose_name=_('Notifikace při komentáři'),
+        help_text=_('Upozornit, když někdo okomentuje váš materiál.'),
+    )
+    notify_on_material = models.BooleanField(
+        default=True,
+        verbose_name=_('Notifikace nových materiálů'),
+        help_text=_('Upozornit, když je přidán materiál ve vašich oblíbených předmětech.'),
+    )
+    email_digest_enabled = models.BooleanField(
+        default=False,
+        verbose_name=_('Týdenní email přehled'),
+        help_text=_('Dostávat týdenní shrnutí nových materiálů emailem.'),
+    )
+    search_tracking_opt_out = models.BooleanField(
+        default=False,
+        verbose_name=_('Nezaznamenávat mé hledání'),
+        help_text=_('Vaše vyhledávání nebude zaznamenáváno do statistik.'),
+    )
+
     class Meta:
         verbose_name = _('Uživatel')
         verbose_name_plural = _('Uživatelé')

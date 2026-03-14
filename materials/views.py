@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import models
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
@@ -244,6 +244,18 @@ class CommentAddView(LoginRequiredMixin, View):
                 description=f'Komentář k: {material.title}',
                 request=request,
             )
+            # Notify material author if they have notifications enabled
+            author = material.author
+            if (author and author != request.user and
+                    getattr(author, 'notify_on_comment', True)):
+                from core.models import Notification
+                from django.urls import reverse
+                target_url = reverse('materials:material_detail', kwargs={'pk': material.pk}) + '#comments'
+                Notification.objects.create(
+                    recipient=author,
+                    verb=f'{request.user.get_display_name()} okomentoval(a) váš materiál „{material.title[:60]}"',
+                    target_url=target_url,
+                )
         return redirect('materials:material_detail', pk=pk)
 
 
@@ -493,3 +505,21 @@ class SubjectZipDownloadView(LoginRequiredMixin, View):
         response = HttpResponse(buf.read(), content_type='application/zip')
         response['Content-Disposition'] = f'attachment; filename="{filename}"'
         return response
+
+
+# ---------------------------------------------------------------------------
+# Tag autocomplete
+# ---------------------------------------------------------------------------
+
+def tag_autocomplete(request):
+    """Return JSON list of tag names matching the query."""
+    q = request.GET.get('q', '').strip()
+    if len(q) < 1:
+        return JsonResponse({'tags': []})
+    from .models import Tag
+    tags = list(
+        Tag.objects.filter(name__icontains=q)
+        .values_list('name', flat=True)
+        .order_by('name')[:10]
+    )
+    return JsonResponse({'tags': tags})
