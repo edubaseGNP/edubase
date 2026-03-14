@@ -38,3 +38,9 @@ node_modules/
 
 # Claude Code
 .claude/
+
+# Celery Beat schedule DB
+celerybeat-schedule
+celerybeat-schedule-shm
+celerybeat-schedule-wal
+celerybeat.pid
