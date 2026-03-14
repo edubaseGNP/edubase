@@ -222,6 +222,23 @@ class AICallLog(models.Model):
         verbose_name=_('Chyba'),
     )
 
+    class FileType(models.TextChoices):
+        IMAGE    = 'image',    _('Obrázek')
+        PDF_TEXT = 'pdf_text', _('PDF (textová vrstva)')
+        PDF_OCR  = 'pdf_ocr',  _('PDF (OCR)')
+        OFFICE   = 'office',   _('Office dokument')
+        UNKNOWN  = 'unknown',  _('Neznámý')
+
+    class Trigger(models.TextChoices):
+        UPLOAD    = 'upload',    _('Nahrání')
+        REPROCESS = 'reprocess', _('Přepracování')
+
+    file_type   = models.CharField(max_length=10, choices=FileType.choices, default=FileType.UNKNOWN, db_index=True, verbose_name=_('Typ souboru'))
+    model_name  = models.CharField(max_length=100, blank=True, default='', verbose_name=_('Model'))
+    attempt     = models.PositiveSmallIntegerField(default=1, verbose_name=_('Pokus č.'))
+    tokens_used = models.PositiveIntegerField(default=0, verbose_name=_('Tokeny'))
+    trigger     = models.CharField(max_length=15, choices=Trigger.choices, default=Trigger.UPLOAD, db_index=True, verbose_name=_('Spuštění'))
+
     # Cost estimates (CZK per successful call, 2025 pricing)
     _COST_CZK = {
         'google':    0.01,
@@ -234,7 +251,16 @@ class AICallLog(models.Model):
 
     @property
     def estimated_cost_czk(self) -> float:
-        return self._COST_CZK.get(self.backend, 0.0) if self.success else 0.0
+        if not self.success:
+            return 0.0
+        if self.tokens_used > 0:
+            # CZK per 1000 tokens (approximate 2025 pricing at 23 CZK/USD)
+            rates = {'google': 0.0023, 'anthropic': 0.046}
+            rate = rates.get(self.backend)
+            if rate:
+                return round(self.tokens_used * rate / 1000, 4)
+        # Flat rate fallback
+        return {'google': 0.01, 'anthropic': 0.11}.get(self.backend, 0.0)
 
     class Meta:
         verbose_name = _('AI/OCR volání')

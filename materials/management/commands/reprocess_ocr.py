@@ -8,9 +8,6 @@ Usage:
   # Force reprocess ALL images (overwrite existing extracted_text)
   python manage.py reprocess_ocr --force
 
-  # Use Claude Vision (requires USE_CLAUDE_OCR=true + ANTHROPIC_API_KEY)
-  python manage.py reprocess_ocr --use-claude --force
-
   # Only PDFs
   python manage.py reprocess_ocr --type pdf
 
@@ -18,7 +15,7 @@ Usage:
   python manage.py reprocess_ocr --dry-run
 """
 
-import time
+import time as _time
 
 from django.core.management.base import BaseCommand
 from django.db.models import Q
@@ -31,10 +28,6 @@ class Command(BaseCommand):
         parser.add_argument(
             '--force', action='store_true',
             help='Reprocess even materials that already have extracted_text.',
-        )
-        parser.add_argument(
-            '--use-claude', action='store_true',
-            help='Override USE_CLAUDE_OCR setting and force Claude Vision for images.',
         )
         parser.add_argument(
             '--type', choices=['image', 'pdf', 'all'], default='all',
@@ -50,27 +43,16 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        from django.conf import settings as _s
         from materials.models import Material
         from materials.utils import (
             extract_text_from_image, extract_text_from_pdf,
-            extract_text_from_office, _claude_vision_extract,
+            extract_text_from_office, _log_ai_call,
         )
 
         force      = options['force']
-        use_claude = options['use_claude']
         file_type  = options['type']
         dry_run    = options['dry_run']
         subject_slug = options['subject']
-
-        # Override Claude setting if --use-claude flag given
-        if use_claude:
-            _s.USE_CLAUDE_OCR    = True
-            if not getattr(_s, 'ANTHROPIC_API_KEY', ''):
-                self.stderr.write(self.style.ERROR(
-                    'ANTHROPIC_API_KEY is not set – cannot use Claude Vision.'
-                ))
-                return
 
         # Build queryset
         qs = Material.objects.filter(is_published=True).exclude(file='')
@@ -103,11 +85,11 @@ class Command(BaseCommand):
 
         self.stdout.write(
             f'{"[DRY RUN] " if dry_run else ""}Nalezeno {total} materiálů k přeprocessování '
-            f'(force={force}, use_claude={use_claude}, type={file_type}).'
+            f'(force={force}, type={file_type}).'
         )
 
         ok = errors = skipped = 0
-        t0 = time.time()
+        t0_total = _time.time()
 
         for i, material in enumerate(materials, 1):
             ext      = _ext(material)
@@ -119,16 +101,31 @@ class Command(BaseCommand):
 
             try:
                 filepath = material.file.path
+                t0 = _time.monotonic()
                 if ext in IMAGE_EXTS:
-                    text = extract_text_from_image(filepath)
+                    result = extract_text_from_image(filepath)
                 elif ext in PDF_EXT:
-                    text = extract_text_from_pdf(filepath)
+                    result = extract_text_from_pdf(filepath)
                 elif ext in OFFICE_EXTS:
-                    text = extract_text_from_office(filepath)
+                    result = extract_text_from_office(filepath)
                 else:
                     self.stdout.write(f'  {label} – přeskočeno (nepodporovaný typ {ext})')
                     skipped += 1
                     continue
+
+                text = result.text
+                duration_ms = int((_time.monotonic() - t0) * 1000)
+                _log_ai_call(
+                    backend=result.backend_used or 'none',
+                    material_id=material.pk,
+                    success=True,
+                    chars=len(text),
+                    duration_ms=duration_ms,
+                    model_name=result.model_name,
+                    tokens_used=result.tokens_used,
+                    file_type=result.file_type,
+                    trigger='reprocess',
+                )
 
                 Material.objects.filter(pk=material.pk).update(
                     extracted_text=text,
@@ -145,7 +142,7 @@ class Command(BaseCommand):
                 )
                 errors += 1
 
-        elapsed = time.time() - t0
+        elapsed = _time.time() - t0_total
         self.stdout.write(
             self.style.SUCCESS(
                 f'\nHotovo za {elapsed:.1f}s: {ok} OK, {errors} chyb, {skipped} přeskočeno.'

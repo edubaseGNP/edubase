@@ -15,24 +15,10 @@ import time
 
 from celery import shared_task
 
+from .utils import _log_ai_call, _get_ai_cfg
+
 logger = logging.getLogger(__name__)
 
-
-def _log_ai_call(backend: str, material_id: int, success: bool,
-                 chars: int, duration_ms: int, error: str = '') -> None:
-    """Persist one AICallLog record; silently skips on any error."""
-    try:
-        from core.models import AICallLog
-        AICallLog.objects.create(
-            backend=backend,
-            material_id=material_id,
-            success=success,
-            chars_extracted=chars,
-            duration_ms=duration_ms,
-            error_msg=error[:500],
-        )
-    except Exception:
-        logger.debug('_log_ai_call failed (non-critical)', exc_info=True)
 
 # AI backends that are subject to external API rate limits
 _AI_BACKENDS = {'google', 'anthropic'}
@@ -54,7 +40,7 @@ def _is_rate_limit_error(exc: Exception) -> bool:
     rate_limit='12/m',
     queue='ai_ocr',
 )
-def extract_text_task(self, material_id: int) -> str:
+def extract_text_task(self, material_id: int, trigger: str = 'upload') -> str:
     """
     Extract text from a Material file and save it to extracted_text.
 
@@ -75,52 +61,65 @@ def extract_text_task(self, material_id: int) -> str:
         logger.warning('extract_text_task: Material %d has no file', material_id)
         return 'no_file'
 
-    # Determine AI backend for logging
-    from .utils import _get_ai_cfg
-    cfg = _get_ai_cfg()
-    ai_backend = (cfg.ai_backend if cfg else None) or 'none'
-
     t0 = time.monotonic()
     try:
         filepath = material.file.path
 
         if material.is_pdf:
-            text = extract_text_from_pdf(filepath)
-            log_backend = ai_backend if ai_backend != 'none' else 'pdfminer'
+            result = extract_text_from_pdf(filepath)
         elif material.is_image:
-            text = extract_text_from_image(filepath)
-            log_backend = ai_backend if ai_backend != 'none' else 'tesseract'
+            result = extract_text_from_image(filepath)
         elif material.is_office:
-            text = extract_text_from_office(filepath)
-            log_backend = 'office'
+            result = extract_text_from_office(filepath)
         else:
             logger.info('extract_text_task: unsupported type for Material %d', material_id)
-            text = ''
-            log_backend = 'none'
+            result = None
 
         duration_ms = int((time.monotonic() - t0) * 1000)
-        _log_ai_call(log_backend, material_id, True, len(text), duration_ms)
+
+        if result is not None:
+            _log_ai_call(
+                backend=result.backend_used or 'none',
+                material_id=material_id,
+                success=True,
+                chars=len(result.text),
+                duration_ms=duration_ms,
+                model_name=result.model_name,
+                tokens_used=result.tokens_used,
+                file_type=result.file_type,
+                attempt=self.request.retries + 1,
+                trigger=trigger,
+            )
+            text = result.text
+        else:
+            text = ''
 
         Material.objects.filter(pk=material_id).update(
             extracted_text=text,
             ocr_processed=True,
         )
         logger.info(
-            'extract_text_task: Material %d done, %d chars extracted in %dms',
+            'extract_text_task: Material %d done, %d chars in %dms',
             material_id, len(text), duration_ms,
         )
         return f'ok:{len(text)}'
 
     except Exception as exc:
         duration_ms = int((time.monotonic() - t0) * 1000)
-        _log_ai_call(ai_backend, material_id, False, 0, duration_ms, str(exc))
-
+        _log_ai_call(
+            backend='error',
+            material_id=material_id,
+            success=False,
+            chars=0,
+            duration_ms=duration_ms,
+            error=str(exc),
+            attempt=self.request.retries + 1,
+            trigger=trigger,
+        )
         if _is_rate_limit_error(exc):
-            # Exponential backoff: 30 s → 60 → 120 → 240 → 480
             countdown = 30 * (2 ** self.request.retries)
             logger.warning(
-                'extract_text_task: rate limit hit for Material %d '
-                '(attempt %d) – retrying in %ds',
+                'extract_text_task: rate limit hit for Material %d (attempt %d) – retrying in %ds',
                 material_id, self.request.retries + 1, countdown,
             )
             raise self.retry(exc=exc, countdown=countdown)

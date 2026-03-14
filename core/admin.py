@@ -241,20 +241,68 @@ _COST_CZK = {
 }
 
 
+_FILE_TYPE_COLORS = {
+    'image':    ('#fde8d8', '#9a3412'),
+    'pdf_text': ('#dcfce7', '#166534'),
+    'pdf_ocr':  ('#fef9c3', '#713f12'),
+    'office':   ('#dbeafe', '#1e40af'),
+    'unknown':  ('#f3f4f6', '#374151'),
+}
+
+
 @admin.register(AICallLog)
 class AICallLogAdmin(ModelAdmin):
+    change_list_template = 'admin/core/aicalllog/change_list.html'
+
     list_display = [
-        'timestamp', 'backend_badge', 'material_link',
-        'success_badge', 'chars_extracted', 'duration_ms', 'cost_display',
+        'timestamp', 'backend_badge', 'file_type_badge', 'model_name',
+        'material_link', 'success_badge', 'attempt',
+        'chars_extracted', 'duration_ms', 'tokens_used', 'cost_display', 'trigger',
     ]
-    list_filter   = ['backend', 'success']
+    list_filter   = ['backend', 'success', 'file_type', 'trigger']
     search_fields = ['material__title']
     readonly_fields = [
         'timestamp', 'backend', 'material', 'success',
         'chars_extracted', 'duration_ms', 'error_msg',
+        'file_type', 'model_name', 'attempt', 'tokens_used', 'trigger',
     ]
     date_hierarchy = 'timestamp'
     actions = ['export_csv']
+
+    def changelist_view(self, request, extra_context=None):
+        import datetime
+        from django.db.models import Avg, Case, FloatField, Sum, Value, When
+        from django.utils import timezone
+
+        today = timezone.now().date()
+        qs_today = AICallLog.objects.filter(timestamp__date=today)
+        total_today = qs_today.count()
+        success_today = qs_today.filter(success=True).count()
+
+        cost_today = qs_today.filter(success=True).aggregate(
+            total=Sum(Case(
+                When(backend='google', then=Value(0.01)),
+                When(backend='anthropic', then=Value(0.11)),
+                default=Value(0.0),
+                output_field=FloatField(),
+            ))
+        )['total'] or 0.0
+
+        avg_duration = qs_today.filter(success=True).aggregate(
+            avg=Avg('duration_ms')
+        )['avg'] or 0
+
+        extra_context = extra_context or {}
+        extra_context['ai_stats'] = {
+            'total_today': total_today,
+            'success_today': success_today,
+            'error_today': total_today - success_today,
+            'success_rate': round(success_today / total_today * 100) if total_today else 100,
+            'cost_today': round(cost_today, 2),
+            'avg_duration_s': round(avg_duration / 1000, 1),
+            'total_all': AICallLog.objects.count(),
+        }
+        return super().changelist_view(request, extra_context=extra_context)
 
     @admin.display(description=_('Backend'), ordering='backend')
     def backend_badge(self, obj):
@@ -263,6 +311,16 @@ class AICallLogAdmin(ModelAdmin):
             '<span style="background:{};color:{};padding:2px 8px;border-radius:12px;'
             'font-size:.75rem;font-weight:600">{}</span>',
             bg, fg, obj.backend,
+        )
+
+    @admin.display(description=_('Typ'), ordering='file_type')
+    def file_type_badge(self, obj):
+        bg, fg = _FILE_TYPE_COLORS.get(obj.file_type, ('#f3f4f6', '#374151'))
+        label = obj.get_file_type_display() if hasattr(obj, 'get_file_type_display') else obj.file_type
+        return format_html(
+            '<span style="background:{};color:{};padding:2px 8px;border-radius:12px;'
+            'font-size:.75rem;font-weight:600">{}</span>',
+            bg, fg, label,
         )
 
     @admin.display(description=_('Materiál'))
@@ -287,8 +345,8 @@ class AICallLogAdmin(ModelAdmin):
 
     @admin.display(description=_('Cena (Kč)'))
     def cost_display(self, obj):
-        cost = _COST_CZK.get(obj.backend, 0.0) if obj.success else 0.0
-        return f'{cost:.2f} Kč' if cost else '—'
+        cost = obj.estimated_cost_czk
+        return f'{cost:.4f} Kč' if cost else '—'
 
     @admin.action(description=_('Exportovat jako CSV'))
     def export_csv(self, request, queryset):
@@ -297,17 +355,25 @@ class AICallLogAdmin(ModelAdmin):
         response['Content-Disposition'] = 'attachment; filename="ai_call_log.csv"'
         response.write('\ufeff')
         writer = csv_mod.writer(response)
-        writer.writerow(['Čas', 'Backend', 'Materiál', 'Úspěch', 'Znaky', 'Trvání (ms)', 'Cena (Kč)', 'Chyba'])
+        writer.writerow([
+            'Čas', 'Backend', 'Typ souboru', 'Model', 'Materiál',
+            'Úspěch', 'Pokus', 'Znaky', 'Trvání (ms)', 'Tokeny',
+            'Cena (Kč)', 'Spuštění', 'Chyba',
+        ])
         for entry in queryset.select_related('material'):
-            cost = _COST_CZK.get(entry.backend, 0.0) if entry.success else 0.0
             writer.writerow([
                 entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
                 entry.backend,
+                entry.file_type,
+                entry.model_name,
                 entry.material.title if entry.material else '',
                 'Ano' if entry.success else 'Ne',
+                entry.attempt,
                 entry.chars_extracted,
                 entry.duration_ms,
-                f'{cost:.2f}' if cost else '0',
+                entry.tokens_used,
+                f'{entry.estimated_cost_czk:.4f}' if entry.estimated_cost_czk else '0',
+                entry.trigger,
                 entry.error_msg,
             ])
         return response

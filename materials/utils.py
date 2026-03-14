@@ -4,8 +4,17 @@ Utility functions for materials: image compression and OCR text extraction.
 
 import io
 import logging
+from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
+
+
+class OCRResult(NamedTuple):
+    text: str
+    model_name: str = ''
+    tokens_used: int = 0
+    backend_used: str = ''
+    file_type: str = 'unknown'
 
 
 # ---------------------------------------------------------------------------
@@ -110,12 +119,97 @@ def _get_ai_cfg():
         return None
 
 
-def extract_text_from_image(filepath: str) -> str:
-    """
-    Extract text from an image file.
-    Backend is read from SiteConfig (DB), with fallback to Django settings env vars.
-    Falls back to Tesseract on any error.
-    """
+def _log_ai_call(
+    backend: str,
+    material_id,
+    success: bool,
+    chars: int,
+    duration_ms: int,
+    error: str = '',
+    model_name: str = '',
+    tokens_used: int = 0,
+    file_type: str = 'unknown',
+    attempt: int = 1,
+    trigger: str = 'upload',
+) -> None:
+    """Persist one AICallLog record; silently skips on any error."""
+    try:
+        from core.models import AICallLog
+        AICallLog.objects.create(
+            backend=backend,
+            material_id=material_id,
+            success=success,
+            chars_extracted=chars,
+            duration_ms=duration_ms,
+            error_msg=error[:500],
+            model_name=model_name,
+            tokens_used=tokens_used,
+            file_type=file_type,
+            attempt=attempt,
+            trigger=trigger,
+        )
+        if not success:
+            _alert_on_high_error_rate(material_id)
+    except Exception:
+        logger.debug('_log_ai_call failed (non-critical)', exc_info=True)
+
+
+def _alert_on_high_error_rate(material_id) -> None:
+    """Create notification + send email if error rate in last hour exceeds 30%."""
+    try:
+        import datetime
+        from django.utils import timezone
+        from core.models import AICallLog, Notification
+
+        hour_ago = timezone.now() - datetime.timedelta(hours=1)
+        recent = AICallLog.objects.filter(timestamp__gte=hour_ago)
+        total = recent.count()
+        if total < 5:
+            return
+        failures = recent.filter(success=False).count()
+        if failures / total < 0.30:
+            return
+
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        msg = (
+            f'AI/OCR: {failures}/{total} volání selhalo za poslední hodinu '
+            f'({failures/total:.0%}). Zkontrolujte nastavení AI backendu.'
+        )
+        cutoff = timezone.now() - datetime.timedelta(minutes=30)
+        for user in User.objects.filter(is_superuser=True):
+            if not Notification.objects.filter(
+                recipient=user,
+                verb__startswith='AI/OCR:',
+                created_at__gte=cutoff,
+            ).exists():
+                Notification.objects.create(
+                    recipient=user,
+                    verb=msg,
+                    target_url='/admin/core/aicalllog/',
+                )
+        # Email alert if SMTP configured
+        try:
+            from core.models import SiteConfig
+            cfg = SiteConfig.get()
+            if cfg.email_notifications_enabled and cfg.smtp_host:
+                from django.core.mail import send_mail
+                admins = list(User.objects.filter(is_superuser=True).values_list('email', flat=True))
+                if admins:
+                    send_mail(
+                        subject='[EduBase] Varování: AI/OCR vysoká chybovost',
+                        message=msg + '\n\nZobrazte log: /admin/core/aicalllog/',
+                        from_email=cfg.default_from_email or 'noreply@edubase.tech',
+                        recipient_list=admins,
+                        fail_silently=True,
+                    )
+        except Exception:
+            pass
+    except Exception:
+        logger.debug('_alert_on_high_error_rate failed', exc_info=True)
+
+
+def extract_text_from_image(filepath: str) -> OCRResult:
     cfg = _get_ai_cfg()
     backend = (cfg.ai_backend if cfg else None) or 'none'
 
@@ -126,42 +220,55 @@ def extract_text_from_image(filepath: str) -> str:
     }.get(backend)
 
     if extractor:
-        text = extractor(filepath)
-        if text:
-            return text
+        result = extractor(filepath)
+        if result.text:
+            return result._replace(file_type='image')
         logger.warning('%s vision failed for %s – falling back to Tesseract', backend, filepath)
 
-    return _tesseract_extract(filepath)
+    result = _tesseract_extract(filepath)
+    return result._replace(file_type='image')
 
 
-def extract_text_from_pdf(filepath: str) -> str:
-    """
-    Extract text from a PDF:
-    1. pdfminer (fast, perfect for text-layer PDFs)
-    2. OCR fallback: Ollama (if configured) or Tesseract
-    """
+def extract_text_from_pdf(filepath: str) -> OCRResult:
     text = _pdfminer_extract(filepath)
     if _looks_like_real_text(text):
         logger.debug('pdfminer OK for %s (%d chars)', filepath, len(text))
-        return text
+        return OCRResult(text=text, model_name='pdfminer', backend_used='pdfminer', file_type='pdf_text')
 
     logger.debug('pdfminer insufficient – OCR fallback for %s', filepath)
 
     cfg = _get_ai_cfg()
-    if (cfg and cfg.ai_backend == 'ollama'):
+    if cfg and cfg.ai_backend == 'ollama':
         result = _ollama_pdf_extract(filepath)
-        if result:
-            return result
+        if result.text:
+            return result._replace(file_type='pdf_ocr')
         logger.warning('Ollama PDF OCR failed for %s – falling back to Tesseract', filepath)
 
-    return _pdf_ocr_extract(filepath)
+    result = _pdf_ocr_extract(filepath)
+    return result._replace(file_type='pdf_ocr')
+
+
+def extract_text_from_office(filepath: str) -> OCRResult:
+    import os
+    ext = os.path.splitext(filepath)[1].lower()
+    dispatch = {
+        '.docx': extract_text_from_docx,
+        '.pptx': extract_text_from_pptx,
+        '.xlsx': extract_text_from_xlsx,
+        '.odt':  extract_text_from_odf,
+        '.ods':  extract_text_from_odf,
+        '.odp':  extract_text_from_odf,
+    }
+    fn = dispatch.get(ext)
+    text = fn(filepath) if fn else ''
+    return OCRResult(text=text, model_name='office', backend_used='office', file_type='office')
 
 
 # ---------------------------------------------------------------------------
 # Internal extraction backends
 # ---------------------------------------------------------------------------
 
-def _tesseract_extract(filepath: str) -> str:
+def _tesseract_extract(filepath: str) -> OCRResult:
     """Tesseract OCR with preprocessing and LSTM engine."""
     try:
         import pytesseract
@@ -175,13 +282,13 @@ def _tesseract_extract(filepath: str) -> str:
         img  = _preprocess_for_ocr(img)
         text = pytesseract.image_to_string(img, lang=lang, config=config)
         logger.debug('Tesseract: %d chars from %s', len(text), filepath)
-        return text.strip()
+        return OCRResult(text=text.strip(), model_name='tesseract', tokens_used=0, backend_used='tesseract')
     except Exception:
         logger.exception('Tesseract failed for %s', filepath)
-        return ''
+        return OCRResult(text='', backend_used='tesseract')
 
 
-def _claude_vision_extract(filepath: str) -> str:
+def _claude_vision_extract(filepath: str) -> OCRResult:
     """
     Use Claude Haiku vision to extract text from an image.
     Dramatically better for handwriting, photos of whiteboards, low-quality scans.
@@ -195,13 +302,13 @@ def _claude_vision_extract(filepath: str) -> str:
         import anthropic
     except ImportError:
         logger.error('anthropic package not installed – run: pip install anthropic')
-        return ''
+        return OCRResult(text='', backend_used='anthropic')
 
     cfg     = _get_ai_cfg()
     api_key = (cfg.anthropic_api_key if cfg else '') or ''
     if not api_key:
         logger.error('Anthropic API key not set in SiteConfig')
-        return ''
+        return OCRResult(text='', backend_used='anthropic')
 
     _MIME = {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -235,14 +342,15 @@ def _claude_vision_extract(filepath: str) -> str:
             }],
         )
         text = msg.content[0].text.strip()
+        tokens = (getattr(msg.usage, 'input_tokens', 0) or 0) + (getattr(msg.usage, 'output_tokens', 0) or 0)
         logger.info('Claude Vision: %d chars from %s', len(text), filepath)
-        return text
+        return OCRResult(text=text, model_name='claude-haiku-4-5-20251001', tokens_used=tokens, backend_used='anthropic')
     except Exception:
         logger.exception('Claude Vision failed for %s', filepath)
-        return ''
+        return OCRResult(text='', backend_used='anthropic')
 
 
-def _gemini_vision_extract(filepath: str) -> str:
+def _gemini_vision_extract(filepath: str) -> OCRResult:
     """
     Use Google Gemini Flash to extract text from an image.
     Free tier: 1 500 req/day. Paid: ~0.01 Kč/image (10× cheaper than Claude Haiku).
@@ -250,20 +358,19 @@ def _gemini_vision_extract(filepath: str) -> str:
     """
     import base64
     import pathlib
-    from django.conf import settings as _s
 
     cfg     = _get_ai_cfg()
     api_key = (cfg.google_ai_api_key if cfg else '') or ''
     if not api_key:
         logger.error('GOOGLE_AI_API_KEY not set in SiteConfig')
-        return ''
+        return OCRResult(text='', backend_used='google')
 
     try:
         from google import genai
         from google.genai import types
     except ImportError:
         logger.error('google-genai not installed – run: pip install google-genai')
-        return ''
+        return OCRResult(text='', backend_used='google')
 
     _MIME = {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
@@ -285,14 +392,15 @@ def _gemini_vision_extract(filepath: str) -> str:
             ],
         )
         text = resp.text.strip()
+        tokens = getattr(getattr(resp, 'usage_metadata', None), 'total_token_count', 0) or 0
         logger.info('Gemini Vision: %d chars from %s', len(text), filepath)
-        return text
+        return OCRResult(text=text, model_name='gemini-2.0-flash', tokens_used=tokens, backend_used='google')
     except Exception:
         logger.exception('Gemini Vision failed for %s', filepath)
-        return ''
+        return OCRResult(text='', backend_used='google')
 
 
-def _ollama_vision_extract(filepath: str) -> str:
+def _ollama_vision_extract(filepath: str) -> OCRResult:
     """
     Use a locally running Ollama server for vision OCR.
     Cost: 0 Kč – runs on your Proxmox server.
@@ -328,13 +436,13 @@ def _ollama_vision_extract(filepath: str) -> str:
             result = json.loads(resp.read())
         text = result.get('response', '').strip()
         logger.info('Ollama Vision (%s): %d chars from %s', model, len(text), filepath)
-        return text
+        return OCRResult(text=text, model_name=model, tokens_used=0, backend_used='ollama')
     except Exception:
         logger.exception('Ollama Vision failed for %s', filepath)
-        return ''
+        return OCRResult(text='', backend_used='ollama')
 
 
-def _ollama_pdf_extract(filepath: str) -> str:
+def _ollama_pdf_extract(filepath: str) -> OCRResult:
     """
     Convert PDF pages to images and run Ollama Vision on each page.
     Used as OCR fallback when AI_BACKEND=ollama and pdfminer finds no real text.
@@ -353,7 +461,7 @@ def _ollama_pdf_extract(filepath: str) -> str:
         pages = convert_from_path(filepath, dpi=dpi)
     except Exception:
         logger.exception('Ollama PDF: pdf2image failed for %s', filepath)
-        return ''
+        return OCRResult(text='', backend_used='ollama')
 
     texts = []
     for i, page in enumerate(pages, 1):
@@ -386,7 +494,7 @@ def _ollama_pdf_extract(filepath: str) -> str:
 
     result = '\n\n'.join(t for t in texts if t).strip()
     logger.info('Ollama PDF (%s): %d chars, %d pages for %s', model, len(result), len(pages), filepath)
-    return result
+    return OCRResult(text=result, model_name=model, tokens_used=0, backend_used='ollama')
 
 
 def _pdfminer_extract(filepath: str) -> str:
@@ -398,12 +506,11 @@ def _pdfminer_extract(filepath: str) -> str:
         return ''
 
 
-def _pdf_ocr_extract(filepath: str) -> str:
+def _pdf_ocr_extract(filepath: str) -> OCRResult:
     """Convert PDF pages to images at OCR_PDF_DPI and run Tesseract on each."""
     try:
         import pytesseract
         from pdf2image import convert_from_path
-        from django.conf import settings as _s
 
         cfg    = _get_ai_cfg()
         dpi    = (cfg.ocr_pdf_dpi if cfg else None) or 300
@@ -417,10 +524,10 @@ def _pdf_ocr_extract(filepath: str) -> str:
             texts.append(pytesseract.image_to_string(page, lang=lang, config=config))
         result = '\n\n'.join(texts).strip()
         logger.debug('PDF OCR (%d dpi): %d chars, %d pages', dpi, len(result), len(pages))
-        return result
+        return OCRResult(text=result, model_name='tesseract', tokens_used=0, backend_used='tesseract')
     except Exception:
         logger.exception('PDF OCR fallback failed for %s', filepath)
-        return ''
+        return OCRResult(text='', backend_used='tesseract')
 
 
 # ---------------------------------------------------------------------------
@@ -489,18 +596,3 @@ def extract_text_from_odf(filepath: str) -> str:
     except Exception:
         logger.exception('ODF extraction failed for %s', filepath)
         return ''
-
-
-def extract_text_from_office(filepath: str) -> str:
-    import os
-    ext = os.path.splitext(filepath)[1].lower()
-    dispatch = {
-        '.docx': extract_text_from_docx,
-        '.pptx': extract_text_from_pptx,
-        '.xlsx': extract_text_from_xlsx,
-        '.odt':  extract_text_from_odf,
-        '.ods':  extract_text_from_odf,
-        '.odp':  extract_text_from_odf,
-    }
-    fn = dispatch.get(ext)
-    return fn(filepath) if fn else ''
