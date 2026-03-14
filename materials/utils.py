@@ -379,11 +379,13 @@ def _gemini_vision_extract(filepath: str) -> OCRResult:
     ext  = pathlib.Path(filepath).suffix.lower()
     mime = _MIME.get(ext, 'image/jpeg')
 
+    model = (cfg.google_ai_model if cfg else '') or 'gemini-1.5-flash'
+
     try:
         data   = base64.standard_b64encode(pathlib.Path(filepath).read_bytes()).decode()
         client = genai.Client(api_key=api_key)
         resp   = client.models.generate_content(
-            model='gemini-2.0-flash',
+            model=model,
             contents=[
                 types.Part.from_bytes(data=base64.b64decode(data), mime_type=mime),
                 'Extrahuj veškerý text z tohoto obrázku. '
@@ -393,8 +395,8 @@ def _gemini_vision_extract(filepath: str) -> OCRResult:
         )
         text = resp.text.strip()
         tokens = getattr(getattr(resp, 'usage_metadata', None), 'total_token_count', 0) or 0
-        logger.info('Gemini Vision: %d chars from %s', len(text), filepath)
-        return OCRResult(text=text, model_name='gemini-2.0-flash', tokens_used=tokens, backend_used='google')
+        logger.info('Gemini Vision (%s): %d chars from %s', model, len(text), filepath)
+        return OCRResult(text=text, model_name=model, tokens_used=tokens, backend_used='google')
     except Exception:
         logger.exception('Gemini Vision failed for %s', filepath)
         return OCRResult(text='', backend_used='google')

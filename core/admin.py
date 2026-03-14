@@ -21,11 +21,11 @@ def _test_ai_backend(cfg) -> tuple[bool, str]:
                 return False, 'API klíč není nastaven'
             from google import genai
             client = genai.Client(api_key=cfg.google_ai_api_key)
-            # Minimal text request to verify key
+            model = cfg.google_ai_model or 'gemini-1.5-flash'
             resp = client.models.generate_content(
-                model='gemini-2.0-flash', contents=['Odpověz pouze: OK']
+                model=model, contents=['Odpověz pouze: OK']
             )
-            return True, f'Gemini připojen – {resp.text.strip()[:30]}'
+            return True, f'Gemini připojen ({model}) – {resp.text.strip()[:30]}'
 
         if backend == 'anthropic':
             if not cfg.anthropic_api_key:
@@ -97,6 +97,7 @@ class SiteConfigAdmin(ModelAdmin):
                 'ai_backend',
                 'ai_status',
                 'google_ai_api_key',
+                'google_ai_model',
                 'anthropic_api_key',
                 'ollama_base_url', 'ollama_vision_model', 'ollama_text_model',
             ),
