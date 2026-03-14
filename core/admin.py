@@ -21,7 +21,7 @@ def _test_ai_backend(cfg) -> tuple[bool, str]:
                 return False, 'API klíč není nastaven'
             from google import genai
             client = genai.Client(api_key=cfg.google_ai_api_key)
-            model = cfg.google_ai_model or 'gemini-1.5-flash'
+            model = cfg.google_ai_model or 'gemini-2.5-flash'
             resp = client.models.generate_content(
                 model=model, contents=['Odpověz pouze: OK']
             )

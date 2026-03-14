@@ -66,9 +66,9 @@ class SiteConfig(models.Model):
         help_text=_('Získejte zdarma na aistudio.google.com – free tier: 1 500 req/den.'),
     )
     google_ai_model = models.CharField(
-        max_length=100, blank=True, default='gemini-1.5-flash',
+        max_length=100, blank=True, default='gemini-2.5-flash',
         verbose_name=_('Google AI model'),
-        help_text=_('Doporučeno: gemini-1.5-flash (free tier). Alternativy: gemini-1.5-pro, gemini-2.0-flash-lite.'),
+        help_text=_('Doporučeno: gemini-2.5-flash. Alternativy: gemini-2.5-pro.'),
     )
     # Anthropic
     anthropic_api_key = models.CharField(

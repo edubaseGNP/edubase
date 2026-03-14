@@ -379,7 +379,7 @@ def _gemini_vision_extract(filepath: str) -> OCRResult:
     ext  = pathlib.Path(filepath).suffix.lower()
     mime = _MIME.get(ext, 'image/jpeg')
 
-    model = (cfg.google_ai_model if cfg else '') or 'gemini-1.5-flash'
+    model = (cfg.google_ai_model if cfg else '') or 'gemini-2.5-flash'
 
     try:
         data   = base64.standard_b64encode(pathlib.Path(filepath).read_bytes()).decode()
