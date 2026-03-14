@@ -24,6 +24,7 @@ urlpatterns = [
     path('material/<int:pk>/like/', views.MaterialLikeView.as_view(), name='material_like'),
     path('material/<int:pk>/komentar/', views.CommentAddView.as_view(), name='comment_add'),
     path('material/<int:pk>/nova-verze/', views.MaterialNewVersionView.as_view(), name='material_new_version'),
+    path('material/<int:pk>/pdf/', views.MaterialServeView.as_view(), name='material_serve_pdf'),
     path('komentar/<int:pk>/smazat/', views.CommentDeleteView.as_view(), name='comment_delete'),
 
     # VIP management

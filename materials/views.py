@@ -7,7 +7,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
 from django.db import models
-from django.http import HttpResponse, JsonResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
@@ -207,6 +207,27 @@ class MaterialDownloadView(LoginRequiredMixin, View):
             request=request,
         )
         return redirect(material.file.url)
+
+
+class MaterialServeView(LoginRequiredMixin, View):
+    """
+    Stream a material file through Django (inline, for PDF preview iframe).
+    Bypasses the media URL — works behind any reverse proxy (Caddy, nginx).
+    """
+    def get(self, request, pk):
+        material = get_object_or_404(Material, pk=pk, is_published=True)
+        if not material.file or not material.is_pdf:
+            raise PermissionDenied
+        try:
+            f = material.file.open('rb')
+        except FileNotFoundError:
+            raise PermissionDenied
+        filename = os.path.basename(material.file.name)
+        response = FileResponse(f, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{filename}"'
+        # Allow embedding in same-origin iframe
+        response['X-Frame-Options'] = 'SAMEORIGIN'
+        return response
 
 
 # ---------------------------------------------------------------------------

@@ -119,7 +119,7 @@
       </button>
       <div id="pdf-preview" class="hidden mt-3 rounded-xl overflow-hidden border border-gray-200 shadow-sm">
         <iframe
-          src="{{ material.file.url }}"
+          src="{% url 'materials:material_serve_pdf' material.pk %}"
           class="w-full"
           style="height: 70vh; min-height: 500px;"
           title="{{ material.title }}"
