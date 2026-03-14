@@ -138,7 +138,7 @@ def extract_text_from_pdf(filepath: str) -> str:
     """
     Extract text from a PDF:
     1. pdfminer (fast, perfect for text-layer PDFs)
-    2. Fallback: convert pages to images at 300 DPI → Tesseract
+    2. OCR fallback: Ollama (if configured) or Tesseract
     """
     text = _pdfminer_extract(filepath)
     if _looks_like_real_text(text):
@@ -146,6 +146,14 @@ def extract_text_from_pdf(filepath: str) -> str:
         return text
 
     logger.debug('pdfminer insufficient – OCR fallback for %s', filepath)
+
+    cfg = _get_ai_cfg()
+    if (cfg and cfg.ai_backend == 'ollama'):
+        result = _ollama_pdf_extract(filepath)
+        if result:
+            return result
+        logger.warning('Ollama PDF OCR failed for %s – falling back to Tesseract', filepath)
+
     return _pdf_ocr_extract(filepath)
 
 
@@ -295,7 +303,6 @@ def _ollama_vision_extract(filepath: str) -> str:
     import pathlib
     import urllib.request
     import json
-    from django.conf import settings as _s
 
     cfg      = _get_ai_cfg()
     base_url = ((cfg.ollama_base_url if cfg else '') or 'http://ollama:11434').rstrip('/')
@@ -325,6 +332,61 @@ def _ollama_vision_extract(filepath: str) -> str:
     except Exception:
         logger.exception('Ollama Vision failed for %s', filepath)
         return ''
+
+
+def _ollama_pdf_extract(filepath: str) -> str:
+    """
+    Convert PDF pages to images and run Ollama Vision on each page.
+    Used as OCR fallback when AI_BACKEND=ollama and pdfminer finds no real text.
+    """
+    import base64
+    import json
+    import urllib.request
+
+    cfg      = _get_ai_cfg()
+    base_url = ((cfg.ollama_base_url if cfg else '') or 'http://ollama:11434').rstrip('/')
+    model    = (cfg.ollama_vision_model if cfg else '') or 'llama3.2-vision'
+    dpi      = (cfg.ocr_pdf_dpi if cfg else None) or 300
+
+    try:
+        from pdf2image import convert_from_path
+        pages = convert_from_path(filepath, dpi=dpi)
+    except Exception:
+        logger.exception('Ollama PDF: pdf2image failed for %s', filepath)
+        return ''
+
+    texts = []
+    for i, page in enumerate(pages, 1):
+        try:
+            import io
+            buf = io.BytesIO()
+            page.save(buf, format='JPEG', quality=85)
+            data = base64.standard_b64encode(buf.getvalue()).decode()
+            payload = json.dumps({
+                'model': model,
+                'prompt': (
+                    'Extrahuj veškerý text z této stránky dokumentu. '
+                    'Zachovej strukturu, odrážky a nadpisy. Vrať jen čistý text.'
+                ),
+                'images': [data],
+                'stream': False,
+            }).encode()
+            req = urllib.request.Request(
+                f'{base_url}/api/generate',
+                data=payload,
+                headers={'Content-Type': 'application/json'},
+            )
+            with urllib.request.urlopen(req, timeout=180) as resp:
+                result = json.loads(resp.read())
+            texts.append(result.get('response', '').strip())
+            logger.debug('Ollama PDF page %d/%d: %d chars', i, len(pages), len(texts[-1]))
+        except Exception:
+            logger.exception('Ollama PDF: page %d failed for %s', i, filepath)
+            texts.append('')
+
+    result = '\n\n'.join(t for t in texts if t).strip()
+    logger.info('Ollama PDF (%s): %d chars, %d pages for %s', model, len(result), len(pages), filepath)
+    return result
 
 
 def _pdfminer_extract(filepath: str) -> str:
