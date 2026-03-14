@@ -190,8 +190,8 @@ class TagAdmin(ModelAdmin):
 @admin.register(Material)
 class MaterialAdmin(ModelAdmin):
     form = MaterialAdminForm
-    list_display = ['title', 'subject', 'material_type', 'author', 'is_published', 'ocr_processed', 'created_at']
-    list_filter = ['material_type', 'is_published', 'ocr_processed', 'subject__school_year', 'tags']
+    list_display = ['title', 'subject', 'material_type', 'author', 'is_published', 'av_status', 'ocr_processed', 'created_at']
+    list_filter = ['material_type', 'is_published', 'av_status', 'ocr_processed', 'subject__school_year', 'tags']
     search_fields = ['title', 'description', 'extracted_text']
     readonly_fields = ['extracted_text', 'ocr_processed', 'ocr_status_with_action', 'created_at', 'updated_at']
     filter_horizontal = ['tags']

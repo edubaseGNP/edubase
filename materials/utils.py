@@ -1,5 +1,5 @@
 """
-Utility functions for materials: image compression and OCR text extraction.
+Utility functions for materials: image compression, ClamAV scanning, OCR text extraction.
 """
 
 import io
@@ -7,6 +7,52 @@ import logging
 from typing import NamedTuple
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# ClamAV antivirus scan
+# ---------------------------------------------------------------------------
+
+def scan_with_clamav(file_path: str) -> tuple[bool, str]:
+    """
+    Scan a file for malware using ClamAV daemon (pyclamd, stream mode).
+
+    Returns (is_clean, threat_name).
+    Fails OPEN: if ClamAV is unreachable or pyclamd not installed,
+    returns (True, 'skipped') so uploads are never blocked by infra issues.
+    """
+    from django.conf import settings as _s
+
+    if not getattr(_s, 'CLAMAV_ENABLED', True):
+        return True, 'skipped'
+
+    try:
+        import pyclamd
+        cd = pyclamd.ClamdNetworkSocket(
+            host=getattr(_s, 'CLAMAV_HOST', 'clamav'),
+            port=getattr(_s, 'CLAMAV_PORT', 3310),
+        )
+        if not cd.ping():
+            logger.warning('ClamAV: daemon not responding – scan skipped')
+            return True, 'skipped'
+
+        with open(file_path, 'rb') as f:
+            result = cd.scan_stream(f)
+
+        if result is None:
+            return True, ''
+
+        # result = {'stream': ('FOUND', 'Eicar-Signature')}
+        threat = result.get('stream', ('', 'UNKNOWN'))[1]
+        logger.warning('ClamAV: THREAT detected in %s – %s', file_path, threat)
+        return False, threat
+
+    except ImportError:
+        logger.warning('ClamAV: pyclamd not installed – scan skipped')
+        return True, 'skipped'
+    except Exception as exc:
+        logger.warning('ClamAV: scan error for %s – %s', file_path, exc)
+        return True, 'error'
 
 
 class OCRResult(NamedTuple):
@@ -379,7 +425,7 @@ def _gemini_vision_extract(filepath: str) -> OCRResult:
     ext  = pathlib.Path(filepath).suffix.lower()
     mime = _MIME.get(ext, 'image/jpeg')
 
-    model = (cfg.google_ai_model if cfg else '') or 'gemini-2.5-flash'
+    model = getattr(cfg, 'google_ai_model', '') or 'gemini-2.5-flash'
 
     try:
         data   = base64.standard_b64encode(pathlib.Path(filepath).read_bytes()).decode()

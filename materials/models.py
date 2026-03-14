@@ -210,6 +210,22 @@ class Material(models.Model):
 
     is_published = models.BooleanField(default=True, verbose_name=_('Zveřejněno'))
 
+    # Antivirus scan status (set by Celery task via ClamAV)
+    class AVStatus(models.TextChoices):
+        PENDING  = 'pending',   _('Čeká na kontrolu')
+        CLEAN    = 'clean',     _('Čistý ✓')
+        INFECTED = 'infected',  _('⚠ Malware detekován')
+        SKIPPED  = 'skipped',   _('Přeskočeno')
+        ERROR    = 'error',     _('Chyba kontroly')
+
+    av_status = models.CharField(
+        max_length=10,
+        choices=AVStatus.choices,
+        default=AVStatus.PENDING,
+        db_index=True,
+        verbose_name=_('Antivirus'),
+    )
+
     # Download counter
     download_count = models.PositiveIntegerField(default=0, verbose_name=_('Počet stažení'))
 

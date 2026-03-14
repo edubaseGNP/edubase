@@ -310,6 +310,21 @@ UNFOLD = {
 }
 
 # ---------------------------------------------------------------------------
+# Fernet field encryption – encrypt sensitive DB fields (API keys, SMTP password)
+# Generate: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+# Rotation: add new key first in the list, keep old keys after it (all are tried for decryption)
+# ---------------------------------------------------------------------------
+_fernet_key = config('FERNET_KEY', default='')
+FERNET_KEYS = [_fernet_key] if _fernet_key else []
+
+# ---------------------------------------------------------------------------
+# ClamAV antivirus scanning
+# ---------------------------------------------------------------------------
+CLAMAV_ENABLED = config('CLAMAV_ENABLED', default=True, cast=bool)
+CLAMAV_HOST = config('CLAMAV_HOST', default='clamav')
+CLAMAV_PORT = config('CLAMAV_PORT', default=3310, cast=int)
+
+# ---------------------------------------------------------------------------
 # Sentry error tracking (optional – only activated when SENTRY_DSN is set)
 # ---------------------------------------------------------------------------
 SENTRY_DSN = config('SENTRY_DSN', default='')
@@ -320,7 +335,7 @@ if SENTRY_DSN:
     sentry_sdk.init(
         dsn=SENTRY_DSN,
         integrations=[DjangoIntegration(), CeleryIntegration()],
-        traces_sample_rate=0.05,   # 5 % of requests – adjust in prod
+        traces_sample_rate=config('SENTRY_TRACES_RATE', default=0.05, cast=float),
         send_default_pii=False,    # do NOT send user emails/IPs to Sentry
     )
 

@@ -4,6 +4,8 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
+from .encrypted_fields import EncryptedCharField
+
 
 class SiteConfig(models.Model):
     """
@@ -38,7 +40,7 @@ class SiteConfig(models.Model):
     )
     smtp_use_tls = models.BooleanField(default=True, verbose_name=_('Použít TLS'))
     smtp_username = models.CharField(max_length=200, blank=True, default='', verbose_name=_('SMTP uživatel'))
-    smtp_password = models.CharField(max_length=200, blank=True, default='', verbose_name=_('SMTP heslo'))
+    smtp_password = EncryptedCharField(blank=True, default='', verbose_name=_('SMTP heslo'))
     default_from_email = models.EmailField(
         blank=True, default='',
         verbose_name=_('Odesílatel (From)'),
@@ -60,8 +62,8 @@ class SiteConfig(models.Model):
         help_text=_('Vyberte poskytovatele AI pro Vision OCR a budoucí funkce (shrnutí, testy).'),
     )
     # Google Gemini
-    google_ai_api_key = models.CharField(
-        max_length=200, blank=True, default='',
+    google_ai_api_key = EncryptedCharField(
+        blank=True, default='',
         verbose_name=_('Google AI API klíč'),
         help_text=_('Získejte zdarma na aistudio.google.com – free tier: 1 500 req/den.'),
     )
@@ -71,8 +73,8 @@ class SiteConfig(models.Model):
         help_text=_('Doporučeno: gemini-2.5-flash. Alternativy: gemini-2.5-pro.'),
     )
     # Anthropic
-    anthropic_api_key = models.CharField(
-        max_length=200, blank=True, default='',
+    anthropic_api_key = EncryptedCharField(
+        blank=True, default='',
         verbose_name=_('Anthropic API klíč'),
         help_text=_('Prepaid kredit, bez předplatného. ~0.11 Kč/obrázek.'),
     )

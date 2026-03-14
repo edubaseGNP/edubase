@@ -15,9 +15,28 @@ import time
 
 from celery import shared_task
 
-from .utils import _log_ai_call, _get_ai_cfg
+from .utils import _log_ai_call, _get_ai_cfg, scan_with_clamav
 
 logger = logging.getLogger(__name__)
+
+
+def _notify_av_infection(material_id: int, title: str, threat: str) -> None:
+    """Create an in-app Notification for all staff/admin users about an infected file."""
+    try:
+        from django.contrib.auth import get_user_model
+        from core.models import Notification
+        User = get_user_model()
+        for admin in User.objects.filter(is_staff=True):
+            Notification.objects.create(
+                recipient=admin,
+                verb=(
+                    f'⚠️ Malware detekován a odstraněn: materiál #{material_id} „{title[:60]}" '
+                    f'obsahoval hrozbu {threat}.'
+                ),
+                target_url=f'/admin/materials/material/{material_id}/change/',
+            )
+    except Exception:
+        logger.exception('_notify_av_infection: failed for material %d', material_id)
 
 
 # AI backends that are subject to external API rate limits
@@ -65,6 +84,33 @@ def extract_text_task(self, material_id: int, trigger: str = 'upload') -> str:
     try:
         filepath = material.file.path
 
+        # ------------------------------------------------------------------
+        # Step 1: ClamAV antivirus scan (before OCR / before file is used)
+        # ------------------------------------------------------------------
+        is_clean, threat = scan_with_clamav(filepath)
+        if not is_clean:
+            logger.error(
+                'extract_text_task: INFECTED file in Material %d – %s – removing',
+                material_id, threat,
+            )
+            # Delete the physical file and unpublish
+            material.file.delete(save=False)
+            Material.objects.filter(pk=material_id).update(
+                file='',
+                is_published=False,
+                av_status='infected',
+                ocr_processed=True,
+            )
+            _notify_av_infection(material_id, material.title, threat)
+            return f'infected:{threat}'
+
+        # Mark as clean (or skipped if ClamAV unavailable)
+        av = 'clean' if threat == '' else 'skipped'
+        Material.objects.filter(pk=material_id).update(av_status=av)
+
+        # ------------------------------------------------------------------
+        # Step 2: OCR / text extraction
+        # ------------------------------------------------------------------
         if material.is_pdf:
             result = extract_text_from_pdf(filepath)
         elif material.is_image:
