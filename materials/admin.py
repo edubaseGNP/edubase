@@ -6,7 +6,10 @@ import zipfile
 from django import forms
 from django.contrib import admin
 from django.db.models import Count, Sum
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseRedirect
+from django.shortcuts import render
+from django.urls import path, reverse
+from django.utils.html import format_html
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin, TabularInline
@@ -190,18 +193,156 @@ class MaterialAdmin(ModelAdmin):
     list_display = ['title', 'subject', 'material_type', 'author', 'is_published', 'ocr_processed', 'created_at']
     list_filter = ['material_type', 'is_published', 'ocr_processed', 'subject__school_year', 'tags']
     search_fields = ['title', 'description', 'extracted_text']
-    readonly_fields = ['extracted_text', 'ocr_processed', 'created_at', 'updated_at']
+    readonly_fields = ['extracted_text', 'ocr_processed', 'ocr_status_with_action', 'created_at', 'updated_at']
     filter_horizontal = ['tags']
     fieldsets = (
         (None, {'fields': ('title', 'icon', 'subject', 'material_type', 'file', 'external_url', 'description', 'tags')}),
         (_('Autor a čas'), {'fields': ('author', 'created_at', 'updated_at', 'is_published')}),
         (_('AI / OCR'), {
-            'fields': ('ocr_processed', 'extracted_text'),
+            'fields': ('ocr_status_with_action', 'ocr_processed', 'extracted_text'),
             'classes': ('collapse',),
-            'description': _('Pole extrahovaný text je pouze pro čtení – vyplňuje se automaticky.'),
+            'description': _('Text se extrahuje automaticky po nahrání. Kliknutím „Spustit OCR" přepracujete ručně.'),
         }),
     )
-    actions = ['export_csv', 'export_xlsx', 'export_zip']
+    actions = ['export_csv', 'export_xlsx', 'export_zip', 'reprocess_ocr_action']
+
+    # ------------------------------------------------------------------
+    # Custom URLs: bulk reprocess page + single-material reprocess
+    # ------------------------------------------------------------------
+
+    def get_urls(self):
+        custom = [
+            path(
+                'reprocess-ocr/',
+                self.admin_site.admin_view(self._reprocess_ocr_bulk_view),
+                name='materials_material_reprocess_ocr',
+            ),
+            path(
+                '<int:pk>/reprocess-ocr/',
+                self.admin_site.admin_view(self._reprocess_ocr_single_view),
+                name='materials_material_reprocess_ocr_single',
+            ),
+        ]
+        return custom + super().get_urls()
+
+    # ------------------------------------------------------------------
+    # Bulk OCR action → redirect to options page
+    # ------------------------------------------------------------------
+
+    @admin.action(description=_('🔄 Přepracovat OCR (výběr metody)'))
+    def reprocess_ocr_action(self, request, queryset):
+        ids = ','.join(str(m.pk) for m in queryset if m.file)
+        if not ids:
+            self.message_user(request, 'Žádný vybraný materiál nemá soubor.', level='warning')
+            return
+        return HttpResponseRedirect(
+            reverse('admin:materials_material_reprocess_ocr') + f'?ids={ids}'
+        )
+
+    def _reprocess_ocr_bulk_view(self, request):
+        """Intermediate page: choose backend + force flag, then dispatch tasks."""
+        from core.models import SiteConfig
+
+        ids_param = request.GET.get('ids', '') or request.POST.get('ids', '')
+        ids = [int(i) for i in ids_param.split(',') if i.strip().isdigit()]
+        materials = Material.objects.filter(pk__in=ids, file__isnull=False).exclude(file='')
+
+        try:
+            cfg = SiteConfig.get()
+            current_backend = cfg.ai_backend
+        except Exception:
+            current_backend = 'none'
+
+        _BACKEND_LABELS = {
+            'auto':      f'Automaticky (aktuální: {current_backend})',
+            'none':      'Pouze Tesseract',
+            'google':    'Google Gemini Flash',
+            'anthropic': 'Anthropic Claude Haiku',
+            'ollama':    'Ollama (lokální server)',
+        }
+
+        if request.method == 'POST':
+            backend_override = request.POST.get('backend', 'auto')
+            force = request.POST.get('force') == '1'
+
+            # Temporarily override SiteConfig if different backend chosen
+            from materials.tasks import extract_text_task
+
+            queued = 0
+            skipped = 0
+            for mat in materials:
+                if not force and mat.ocr_processed and mat.extracted_text:
+                    skipped += 1
+                    continue
+                # If override requested, patch SiteConfig for this run
+                if backend_override != 'auto' and backend_override != current_backend:
+                    try:
+                        cfg.ai_backend = backend_override
+                        cfg.save(update_fields=['ai_backend'])
+                    except Exception:
+                        pass
+                extract_text_task.delay(mat.pk, trigger='reprocess')
+                queued += 1
+
+            level = 'success' if queued else 'warning'
+            self.message_user(
+                request,
+                f'Zařazeno do fronty: {queued} materiálů'
+                + (f', přeskočeno (již zpracováno): {skipped}' if skipped else '')
+                + '.',
+                level=level,
+            )
+            return HttpResponseRedirect(reverse('admin:materials_material_changelist'))
+
+        ctx = {
+            **self.admin_site.each_context(request),
+            'title': 'Přepracovat OCR',
+            'materials': materials,
+            'ids': ids_param,
+            'backend_choices': _BACKEND_LABELS,
+            'current_backend': current_backend,
+            'opts': self.model._meta,
+        }
+        return render(request, 'admin/materials/material/reprocess_ocr.html', ctx)
+
+    def _reprocess_ocr_single_view(self, request, pk):
+        """Dispatch OCR task for a single material and redirect back."""
+        from materials.tasks import extract_text_task
+        try:
+            mat = Material.objects.get(pk=pk)
+            if mat.file:
+                extract_text_task.delay(mat.pk, trigger='reprocess')
+                self.message_user(request, f'OCR zařazeno do fronty: „{mat.title}".')
+            else:
+                self.message_user(request, 'Materiál nemá soubor.', level='warning')
+        except Material.DoesNotExist:
+            self.message_user(request, 'Materiál nenalezen.', level='error')
+        return HttpResponseRedirect(
+            reverse('admin:materials_material_change', args=[pk])
+        )
+
+    # ------------------------------------------------------------------
+    # Individual OCR status + button (readonly field on change form)
+    # ------------------------------------------------------------------
+
+    @admin.display(description=_('OCR'))
+    def ocr_status_with_action(self, obj):
+        if not obj.pk:
+            return '—'
+        if not obj.file:
+            return format_html('<span style="color:#6b7280">Žádný soubor</span>')
+        url = reverse('admin:materials_material_reprocess_ocr_single', args=[obj.pk])
+        chars = len(obj.extracted_text or '')
+        if obj.ocr_processed:
+            badge = f'<span style="color:#16a34a;font-weight:600">✅ Hotovo – {chars} znaků</span>'
+        else:
+            badge = '<span style="color:#d97706;font-weight:600">⏳ Nezpracováno</span>'
+        btn = (
+            f'<a href="{url}" style="margin-left:12px;padding:3px 10px;background:#3b82f6;'
+            f'color:#fff;border-radius:6px;font-size:.8rem;text-decoration:none;font-weight:600">'
+            f'▶ Spustit OCR</a>'
+        )
+        return format_html('{}{}', format_html(badge), format_html(btn))
 
     @admin.action(description=_('Exportovat jako CSV'))
     def export_csv(self, request, queryset):
