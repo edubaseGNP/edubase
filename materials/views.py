@@ -9,10 +9,12 @@ from django.core.exceptions import PermissionDenied
 from django.db import models
 from django.http import FileResponse, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.utils.decorators import method_decorator
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from django.views import View
 from django.views.generic import DetailView, ListView
+from django_ratelimit.decorators import ratelimit
 
 from core.audit import audit_log
 from core.models import AuditLog
@@ -77,6 +79,7 @@ class SubjectDetailView(LoginRequiredMixin, DetailView):
 # Material upload
 # ---------------------------------------------------------------------------
 
+@method_decorator(ratelimit(key='user_or_ip', rate='10/m', method='POST', block=True), name='post')
 class MaterialUploadView(LoginRequiredMixin, View):
     template_name = 'materials/upload.html'
 
@@ -254,6 +257,7 @@ class MaterialLikeView(LoginRequiredMixin, View):
 # Comments
 # ---------------------------------------------------------------------------
 
+@method_decorator(ratelimit(key='user_or_ip', rate='15/m', method='POST', block=True), name='post')
 class CommentAddView(LoginRequiredMixin, View):
     def post(self, request, pk):
         material = get_object_or_404(Material, pk=pk, is_published=True)

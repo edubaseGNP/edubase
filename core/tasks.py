@@ -1,8 +1,15 @@
 """
 Periodic Celery tasks for core app.
 """
+import gzip
 import logging
+import os
+import subprocess
+from datetime import datetime
+from pathlib import Path
+
 from celery import shared_task
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -75,3 +82,57 @@ def send_weekly_digest() -> str:
 
     logger.info('send_weekly_digest: sent to %d users', sent)
     return f'sent:{sent}'
+
+
+@shared_task(queue='default')
+def backup_database() -> str:
+    """
+    Create a compressed pg_dump of the PostgreSQL database.
+    Keeps the last 7 daily backups in /app/backups/.
+    Scheduled via Celery Beat (see settings/base.py CELERY_BEAT_SCHEDULE).
+    """
+    backup_dir = Path(settings.BASE_DIR) / 'backups'
+    backup_dir.mkdir(exist_ok=True)
+
+    db = settings.DATABASES['default']
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dump_path = backup_dir / f'backup_{timestamp}.sql.gz'
+
+    env = os.environ.copy()
+    env['PGPASSWORD'] = db.get('PASSWORD', '')
+
+    try:
+        result = subprocess.run(
+            [
+                'pg_dump',
+                '-h', db.get('HOST', 'db'),
+                '-p', str(db.get('PORT', '5432')),
+                '-U', db.get('USER', 'edubase'),
+                db.get('NAME', 'edubase'),
+            ],
+            env=env,
+            capture_output=True,
+            timeout=300,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(result.stderr.decode(errors='replace'))
+
+        with gzip.open(dump_path, 'wb') as gz:
+            gz.write(result.stdout)
+
+        size_mb = dump_path.stat().st_size / (1024 * 1024)
+        logger.info('backup_database: %s created (%.1f MB)', dump_path.name, size_mb)
+
+        # Retain only the 7 most recent backups
+        backups = sorted(backup_dir.glob('backup_*.sql.gz'))
+        for old in backups[:-7]:
+            old.unlink()
+            logger.info('backup_database: pruned %s', old.name)
+
+        return f'ok:{dump_path.name}:{size_mb:.1f}MB'
+
+    except Exception as exc:
+        logger.error('backup_database: failed – %s', exc)
+        if dump_path.exists():
+            dump_path.unlink()
+        raise

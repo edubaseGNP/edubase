@@ -21,6 +21,9 @@ done
 
 echo "PostgreSQL is ready."
 
+# Ensure runtime directories exist
+mkdir -p /app/logs /app/backups
+
 # Only the web service runs migrations – celery worker sets SKIP_MIGRATE=1
 if [ "${SKIP_MIGRATE:-0}" != "1" ]; then
   python manage.py migrate --noinput

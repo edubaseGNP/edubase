@@ -1,10 +1,18 @@
 from django.contrib import admin
+from django.http import JsonResponse
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from django.conf.urls.i18n import i18n_patterns
 
+
+def health(request):
+    """Lightweight health check – used by Docker healthcheck and load balancers."""
+    return JsonResponse({'status': 'ok'})
+
+
 urlpatterns = [
+    path('health/', health),
     path('i18n/', include('django.conf.urls.i18n')),
     path('setup/', include('setup.urls', namespace='setup')),
 ]

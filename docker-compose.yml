@@ -7,6 +7,7 @@ services:
       POSTGRES_DB: ${DB_NAME:-edubase}
       POSTGRES_USER: ${DB_USER:-edubase}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-edubase_secret}
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-edubase}"]
       interval: 10s
@@ -17,6 +18,12 @@ services:
     image: redis:7-alpine
     volumes:
       - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   web:
     build: .
@@ -25,6 +32,8 @@ services:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
+      - logs_volume:/app/logs
+      - backups_volume:/app/backups
     ports:
       - "8000:8000"
     env_file:
@@ -35,7 +44,14 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   celery:
     build: .
@@ -43,6 +59,8 @@ services:
     volumes:
       - .:/app
       - media_volume:/app/media
+      - logs_volume:/app/logs
+      - backups_volume:/app/backups
     env_file:
       - .env
     environment:
@@ -52,7 +70,8 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    restart: unless-stopped
 
   # Dedicated AI/OCR worker: concurrency=1 ensures rate_limit='12/m' is truly global
   celery-ai:
@@ -61,6 +80,7 @@ services:
     volumes:
       - .:/app
       - media_volume:/app/media
+      - logs_volume:/app/logs
     env_file:
       - .env
     environment:
@@ -70,13 +90,15 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    restart: unless-stopped
 
   celery-beat:
     build: .
     command: celery -A edubase beat --loglevel=info
     volumes:
       - .:/app
+      - logs_volume:/app/logs
     env_file:
       - .env
     environment:
@@ -86,7 +108,27 @@ services:
       db:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Celery Flower – monitoring dashboard for task queues
+  # Accessible at http://server:5555  (protect with FLOWER_USER / FLOWER_PASSWORD)
+  flower:
+    build: .
+    command: >
+      celery -A edubase flower
+      --port=5555
+      --basic_auth=${FLOWER_USER:-admin}:${FLOWER_PASSWORD:-change-me}
+    ports:
+      - "5555:5555"
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: edubase.settings.dev
+      SKIP_MIGRATE: "1"
+    depends_on:
+      - redis
+    restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # Ollama – lokální AI inference (Vision OCR + text tasks), ZDARMA
@@ -115,4 +157,6 @@ volumes:
   redis_data:
   static_volume:
   media_volume:
+  logs_volume:
+  backups_volume:
   # ollama_data:

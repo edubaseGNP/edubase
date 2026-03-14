@@ -107,6 +107,37 @@ OFFICE_EXTS = {'.docx', '.pptx', '.xlsx', '.odt', '.ods', '.odp'}
 IMAGE_EXTS  = {'.jpg', '.jpeg', '.png', '.gif', '.webp'}
 ALLOWED_EXTS = {'.pdf'} | IMAGE_EXTS | OFFICE_EXTS
 
+# Magic bytes (file signatures) for each extension – (offset, bytes) pairs, ALL must match.
+_MAGIC: dict[str, list[tuple[int, bytes]]] = {
+    '.pdf':  [(0, b'%PDF')],
+    '.jpg':  [(0, b'\xff\xd8\xff')],
+    '.jpeg': [(0, b'\xff\xd8\xff')],
+    '.png':  [(0, b'\x89PNG\r\n\x1a\n')],
+    '.gif':  [(0, b'GIF8')],
+    '.webp': [(0, b'RIFF'), (8, b'WEBP')],
+    # Office + ODF – all ZIP-based
+    '.docx': [(0, b'PK\x03\x04')],
+    '.pptx': [(0, b'PK\x03\x04')],
+    '.xlsx': [(0, b'PK\x03\x04')],
+    '.odt':  [(0, b'PK\x03\x04')],
+    '.ods':  [(0, b'PK\x03\x04')],
+    '.odp':  [(0, b'PK\x03\x04')],
+}
+
+
+def _verify_magic_bytes(file, ext: str) -> bool:
+    """Return True if the uploaded file's header matches the expected magic bytes."""
+    checks = _MAGIC.get(ext.lower(), [])
+    if not checks:
+        return True
+    try:
+        file.seek(0)
+        header = file.read(16)
+        file.seek(0)
+        return all(header[offset:offset + len(sig)] == sig for offset, sig in checks)
+    except Exception:
+        return False
+
 EXT_LABELS = {
     '.pdf':  'PDF',
     '.jpg':  'JPG', '.jpeg': 'JPG', '.png': 'PNG', '.gif': 'GIF', '.webp': 'WEBP',
@@ -194,6 +225,13 @@ class MaterialUploadForm(forms.ModelForm):
                 _('Nepodporovaný formát. Povolené: PDF, JPG, PNG, WEBP, '
                   'DOCX, PPTX, XLSX, ODT, ODS, ODP.')
             )
+
+        # Magic bytes check – catches files with renamed extension
+        if not _verify_magic_bytes(file, ext):
+            raise forms.ValidationError(
+                _('Soubor neodpovídá deklarovanému formátu (neplatná hlavička souboru).')
+            )
+
         return file
 
     def clean(self):
