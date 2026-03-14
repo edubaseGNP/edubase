@@ -45,6 +45,60 @@ class SiteConfig(models.Model):
         help_text=_('Např. edubase@skola.cz'),
     )
 
+    # ---- AI / OCR -----------------------------------------------------------
+    class AIBackend(models.TextChoices):
+        NONE       = 'none',       _('Vypnuto – pouze Tesseract')
+        GOOGLE     = 'google',     _('Google Gemini Flash (doporučeno)')
+        ANTHROPIC  = 'anthropic',  _('Anthropic Claude Haiku')
+        OLLAMA     = 'ollama',     _('Ollama – lokálně na serveru (zdarma)')
+
+    ai_backend = models.CharField(
+        max_length=20,
+        choices=AIBackend.choices,
+        default=AIBackend.NONE,
+        verbose_name=_('AI backend'),
+        help_text=_('Vyberte poskytovatele AI pro Vision OCR a budoucí funkce (shrnutí, testy).'),
+    )
+    # Google Gemini
+    google_ai_api_key = models.CharField(
+        max_length=200, blank=True, default='',
+        verbose_name=_('Google AI API klíč'),
+        help_text=_('Získejte zdarma na aistudio.google.com – free tier: 1 500 req/den.'),
+    )
+    # Anthropic
+    anthropic_api_key = models.CharField(
+        max_length=200, blank=True, default='',
+        verbose_name=_('Anthropic API klíč'),
+        help_text=_('Prepaid kredit, bez předplatného. ~0.11 Kč/obrázek.'),
+    )
+    # Ollama (local)
+    ollama_base_url = models.CharField(
+        max_length=200, blank=True, default='http://ollama:11434',
+        verbose_name=_('Ollama URL'),
+        help_text=_('URL lokálního Ollama serveru, např. http://ollama:11434'),
+    )
+    ollama_vision_model = models.CharField(
+        max_length=100, blank=True, default='llama3.2-vision',
+        verbose_name=_('Ollama Vision model'),
+        help_text=_('Doporučeno: llama3.2-vision (11B) nebo llava:7b pro slabší hardware.'),
+    )
+    ollama_text_model = models.CharField(
+        max_length=100, blank=True, default='llama3.1',
+        verbose_name=_('Ollama Text model'),
+        help_text=_('Pro shrnutí a generování testů, např. llama3.1 nebo gemma3.'),
+    )
+    # OCR engine settings
+    ocr_pdf_dpi = models.PositiveSmallIntegerField(
+        default=300,
+        verbose_name=_('PDF OCR – DPI'),
+        help_text=_('Rozlišení pro převod PDF stránek na obrázky před OCR. Doporučeno: 300.'),
+    )
+    ocr_lang = models.CharField(
+        max_length=50, default='ces+eng',
+        verbose_name=_('Tesseract jazyk'),
+        help_text=_('Jazykové balíčky pro Tesseract, např. ces+eng nebo ces.'),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

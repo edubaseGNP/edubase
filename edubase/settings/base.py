@@ -139,6 +139,14 @@ CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300  # 5 min hard limit per task
 
+# Queues: 'default' for general tasks, 'ai_ocr' for AI API calls
+# ai_ocr worker runs with concurrency=1 + rate_limit to respect 15 RPM API limits
+CELERY_TASK_DEFAULT_QUEUE = 'default'
+CELERY_TASK_ROUTES = {
+    'materials.tasks.extract_text_task': {'queue': 'ai_ocr'},
+}
+CELERY_TASK_QUEUES_MAX_PRIORITY = 10
+
 # ---------------------------------------------------------------------------
 # File upload settings
 # ---------------------------------------------------------------------------
@@ -157,6 +165,22 @@ MATERIAL_ALLOWED_TYPES = [
 ]
 IMAGE_COMPRESS_MAX_WIDTH = 1920
 IMAGE_COMPRESS_QUALITY = 85
+
+# ---------------------------------------------------------------------------
+# OCR / AI settings
+# ---------------------------------------------------------------------------
+OCR_PDF_DPI = config('OCR_PDF_DPI', default=300, cast=int)
+OCR_LANG    = config('OCR_LANG', default='ces+eng')
+
+# AI backend for Vision OCR + future AI features (summary, quiz, …)
+# Options: 'none' | 'anthropic' | 'google' | 'ollama'
+AI_BACKEND        = config('AI_BACKEND', default='none')
+ANTHROPIC_API_KEY = config('ANTHROPIC_API_KEY', default='')
+GOOGLE_AI_API_KEY = config('GOOGLE_AI_API_KEY', default='')
+# Ollama: URL of locally running Ollama server (e.g. http://localhost:11434)
+OLLAMA_BASE_URL   = config('OLLAMA_BASE_URL', default='http://ollama:11434')
+OLLAMA_VISION_MODEL = config('OLLAMA_VISION_MODEL', default='llama3.2-vision')
+OLLAMA_TEXT_MODEL   = config('OLLAMA_TEXT_MODEL',   default='llama3.1')
 
 # Django Allauth
 SITE_ID = 1

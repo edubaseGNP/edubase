@@ -39,7 +39,7 @@ services:
 
   celery:
     build: .
-    command: celery -A edubase worker --loglevel=info --concurrency=2
+    command: celery -A edubase worker --loglevel=info --concurrency=2 --queues=default
     volumes:
       - .:/app
       - media_volume:/app/media
@@ -54,8 +54,49 @@ services:
       redis:
         condition: service_started
 
+  # Dedicated AI/OCR worker: concurrency=1 ensures rate_limit='12/m' is truly global
+  celery-ai:
+    build: .
+    command: celery -A edubase worker --loglevel=info --concurrency=1 --queues=ai_ocr --hostname=ai@%h
+    volumes:
+      - .:/app
+      - media_volume:/app/media
+    env_file:
+      - .env
+    environment:
+      DJANGO_SETTINGS_MODULE: edubase.settings.dev
+      SKIP_MIGRATE: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  # ---------------------------------------------------------------------------
+  # Ollama – lokální AI inference (Vision OCR + text tasks), ZDARMA
+  # Odkomentuj a nastav AI_BACKEND=ollama v .env
+  # Po prvním spuštění stáhnout model:
+  #   docker-compose exec ollama ollama pull llama3.2-vision
+  #   docker-compose exec ollama ollama pull llama3.1
+  # ---------------------------------------------------------------------------
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   ports:
+  #     - "11434:11434"
+  #   # Pro GPU (NVIDIA): odkomentuj deploy sekci
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: 1
+  #   #           capabilities: [gpu]
+
 volumes:
   postgres_data:
   redis_data:
   static_volume:
   media_volume:
+  # ollama_data:

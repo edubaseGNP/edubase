@@ -15,25 +15,20 @@ logger = logging.getLogger(__name__)
 def compress_image_file(file_field, max_width: int = 1920, quality: int = 85) -> None:
     """
     Resize and compress an uploaded image in-place.
-
     - If width > max_width: downscale proportionally.
-    - JPEG output for non-transparent images, PNG otherwise.
-    - Replaces the file content on the FieldFile.
+    - JPEG for non-transparent images, PNG otherwise.
     """
     from PIL import Image
 
     try:
         file_field.seek(0)
         img = Image.open(file_field)
-        original_format = img.format or 'JPEG'
         has_alpha = img.mode in ('RGBA', 'LA', 'P')
 
-        # Resize if necessary
         if img.width > max_width:
             ratio = max_width / img.width
-            new_height = int(img.height * ratio)
-            img = img.resize((max_width, new_height), Image.LANCZOS)
-            logger.debug('Image resized to %dx%d', max_width, new_height)
+            img = img.resize((max_width, int(img.height * ratio)), Image.LANCZOS)
+            logger.debug('Image resized to %dx%d', img.width, img.height)
 
         output = io.BytesIO()
         if has_alpha:
@@ -58,36 +53,277 @@ def _replace_extension(filename: str, new_ext: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# OCR / text extraction
+# OCR helpers
 # ---------------------------------------------------------------------------
+
+def _preprocess_for_ocr(img):
+    """
+    Prepare a PIL image for Tesseract:
+      1. Greyscale
+      2. Auto-contrast
+      3. Upscale to at least 1800 px wide (≈300 DPI for A4 scans)
+      4. Sharpen
+    Returns a new PIL image.
+    """
+    from PIL import Image, ImageFilter, ImageOps
+
+    img = img.convert('L')                          # greyscale
+    img = ImageOps.autocontrast(img, cutoff=2)      # stretch histogram, clip 2 % outliers
+
+    if img.width < 1800:                            # upscale small/low-DPI scans
+        scale = 1800 / img.width
+        img = img.resize(
+            (int(img.width * scale), int(img.height * scale)),
+            Image.LANCZOS,
+        )
+        logger.debug('OCR preprocess: upscaled to %dx%d', img.width, img.height)
+
+    img = img.filter(ImageFilter.SHARPEN)
+    return img
+
+
+def _looks_like_real_text(text: str, min_chars: int = 30) -> bool:
+    """
+    Sanity-check pdfminer output.
+    Returns False if text is too short or mostly non-printable (garbled encoding).
+    """
+    if not text or len(text.strip()) < min_chars:
+        return False
+    printable = sum(1 for c in text if c.isprintable() and not c.isspace())
+    ratio = printable / max(len(text), 1)
+    return ratio > 0.65
+
+
+# ---------------------------------------------------------------------------
+# OCR / text extraction — public API
+# ---------------------------------------------------------------------------
+
+def _get_ai_cfg():
+    """
+    Return the SiteConfig instance (DB-stored AI settings).
+    Falls back gracefully if DB is unavailable (e.g. during migrations).
+    """
+    try:
+        from core.models import SiteConfig
+        return SiteConfig.get()
+    except Exception:
+        return None
+
+
+def extract_text_from_image(filepath: str) -> str:
+    """
+    Extract text from an image file.
+    Backend is read from SiteConfig (DB), with fallback to Django settings env vars.
+    Falls back to Tesseract on any error.
+    """
+    cfg = _get_ai_cfg()
+    backend = (cfg.ai_backend if cfg else None) or 'none'
+
+    extractor = {
+        'anthropic': _claude_vision_extract,
+        'google':    _gemini_vision_extract,
+        'ollama':    _ollama_vision_extract,
+    }.get(backend)
+
+    if extractor:
+        text = extractor(filepath)
+        if text:
+            return text
+        logger.warning('%s vision failed for %s – falling back to Tesseract', backend, filepath)
+
+    return _tesseract_extract(filepath)
+
 
 def extract_text_from_pdf(filepath: str) -> str:
     """
-    Extract text from a PDF file.
-    1. Try pdfminer (works for text-layer PDFs).
-    2. Fallback: convert pages to images with pdf2image and run Tesseract OCR.
+    Extract text from a PDF:
+    1. pdfminer (fast, perfect for text-layer PDFs)
+    2. Fallback: convert pages to images at 300 DPI → Tesseract
     """
     text = _pdfminer_extract(filepath)
-    if text.strip():
-        logger.debug('pdfminer succeeded for %s (%d chars)', filepath, len(text))
+    if _looks_like_real_text(text):
+        logger.debug('pdfminer OK for %s (%d chars)', filepath, len(text))
         return text
 
-    logger.debug('pdfminer returned empty text – falling back to OCR for %s', filepath)
+    logger.debug('pdfminer insufficient – OCR fallback for %s', filepath)
     return _pdf_ocr_extract(filepath)
 
 
-def extract_text_from_image(filepath: str, lang: str = 'ces+eng') -> str:
-    """Run Tesseract OCR on an image file."""
+# ---------------------------------------------------------------------------
+# Internal extraction backends
+# ---------------------------------------------------------------------------
+
+def _tesseract_extract(filepath: str) -> str:
+    """Tesseract OCR with preprocessing and LSTM engine."""
     try:
         import pytesseract
         from PIL import Image
 
-        img = Image.open(filepath)
-        text = pytesseract.image_to_string(img, lang=lang)
-        logger.debug('Tesseract OCR: %d chars from %s', len(text), filepath)
+        cfg    = _get_ai_cfg()
+        lang   = (cfg.ocr_lang if cfg else None) or 'ces+eng'
+        config = '--oem 3 --psm 6'   # LSTM engine + uniform text block
+
+        img  = Image.open(filepath)
+        img  = _preprocess_for_ocr(img)
+        text = pytesseract.image_to_string(img, lang=lang, config=config)
+        logger.debug('Tesseract: %d chars from %s', len(text), filepath)
         return text.strip()
     except Exception:
-        logger.exception('Tesseract OCR failed for %s', filepath)
+        logger.exception('Tesseract failed for %s', filepath)
+        return ''
+
+
+def _claude_vision_extract(filepath: str) -> str:
+    """
+    Use Claude Haiku vision to extract text from an image.
+    Dramatically better for handwriting, photos of whiteboards, low-quality scans.
+    Requires ANTHROPIC_API_KEY in environment.
+    Cost: ~0.08 Kč / image (Haiku model).
+    """
+    import base64
+    import pathlib
+
+    try:
+        import anthropic
+    except ImportError:
+        logger.error('anthropic package not installed – run: pip install anthropic')
+        return ''
+
+    cfg     = _get_ai_cfg()
+    api_key = (cfg.anthropic_api_key if cfg else '') or ''
+    if not api_key:
+        logger.error('Anthropic API key not set in SiteConfig')
+        return ''
+
+    _MIME = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+        '.png': 'image/png', '.webp': 'image/webp', '.gif': 'image/gif',
+    }
+    ext  = pathlib.Path(filepath).suffix.lower()
+    mime = _MIME.get(ext, 'image/jpeg')
+
+    try:
+        data = base64.standard_b64encode(pathlib.Path(filepath).read_bytes()).decode()
+        client = anthropic.Anthropic(api_key=api_key)
+        msg = client.messages.create(
+            model='claude-haiku-4-5-20251001',
+            max_tokens=4096,
+            messages=[{
+                'role': 'user',
+                'content': [
+                    {
+                        'type': 'image',
+                        'source': {'type': 'base64', 'media_type': mime, 'data': data},
+                    },
+                    {
+                        'type': 'text',
+                        'text': (
+                            'Extrahuj veškerý text z tohoto obrázku. '
+                            'Zachovej strukturu, odrážky a nadpisy. '
+                            'Vrať pouze čistý text bez úvodního komentáře.'
+                        ),
+                    },
+                ],
+            }],
+        )
+        text = msg.content[0].text.strip()
+        logger.info('Claude Vision: %d chars from %s', len(text), filepath)
+        return text
+    except Exception:
+        logger.exception('Claude Vision failed for %s', filepath)
+        return ''
+
+
+def _gemini_vision_extract(filepath: str) -> str:
+    """
+    Use Google Gemini Flash to extract text from an image.
+    Free tier: 1 500 req/day. Paid: ~0.01 Kč/image (10× cheaper than Claude Haiku).
+    Requires: pip install google-genai  +  GOOGLE_AI_API_KEY in env.
+    """
+    import base64
+    import pathlib
+    from django.conf import settings as _s
+
+    cfg     = _get_ai_cfg()
+    api_key = (cfg.google_ai_api_key if cfg else '') or ''
+    if not api_key:
+        logger.error('GOOGLE_AI_API_KEY not set in SiteConfig')
+        return ''
+
+    try:
+        from google import genai
+        from google.genai import types
+    except ImportError:
+        logger.error('google-genai not installed – run: pip install google-genai')
+        return ''
+
+    _MIME = {
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+        '.png': 'image/png',  '.webp': 'image/webp', '.gif': 'image/gif',
+    }
+    ext  = pathlib.Path(filepath).suffix.lower()
+    mime = _MIME.get(ext, 'image/jpeg')
+
+    try:
+        data   = base64.standard_b64encode(pathlib.Path(filepath).read_bytes()).decode()
+        client = genai.Client(api_key=api_key)
+        resp   = client.models.generate_content(
+            model='gemini-2.0-flash',
+            contents=[
+                types.Part.from_bytes(data=base64.b64decode(data), mime_type=mime),
+                'Extrahuj veškerý text z tohoto obrázku. '
+                'Zachovej strukturu, odrážky a nadpisy. '
+                'Vrať pouze čistý text bez úvodního komentáře.',
+            ],
+        )
+        text = resp.text.strip()
+        logger.info('Gemini Vision: %d chars from %s', len(text), filepath)
+        return text
+    except Exception:
+        logger.exception('Gemini Vision failed for %s', filepath)
+        return ''
+
+
+def _ollama_vision_extract(filepath: str) -> str:
+    """
+    Use a locally running Ollama server for vision OCR.
+    Cost: 0 Kč – runs on your Proxmox server.
+    Requires: Ollama running with llama3.2-vision (or similar vision model).
+    docker-compose service 'ollama' or OLLAMA_BASE_URL env var.
+    """
+    import base64
+    import pathlib
+    import urllib.request
+    import json
+    from django.conf import settings as _s
+
+    cfg      = _get_ai_cfg()
+    base_url = ((cfg.ollama_base_url if cfg else '') or 'http://ollama:11434').rstrip('/')
+    model    = (cfg.ollama_vision_model if cfg else '') or 'llama3.2-vision'
+
+    try:
+        data = base64.standard_b64encode(pathlib.Path(filepath).read_bytes()).decode()
+        payload = json.dumps({
+            'model': model,
+            'prompt': (
+                'Extrahuj veškerý text z tohoto obrázku. '
+                'Zachovej strukturu a odrážky. Vrať jen čistý text.'
+            ),
+            'images': [data],
+            'stream': False,
+        }).encode()
+        req = urllib.request.Request(
+            f'{base_url}/api/generate',
+            data=payload,
+            headers={'Content-Type': 'application/json'},
+        )
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            result = json.loads(resp.read())
+        text = result.get('response', '').strip()
+        logger.info('Ollama Vision (%s): %d chars from %s', model, len(text), filepath)
+        return text
+    except Exception:
+        logger.exception('Ollama Vision failed for %s', filepath)
         return ''
 
 
@@ -100,15 +336,26 @@ def _pdfminer_extract(filepath: str) -> str:
         return ''
 
 
-def _pdf_ocr_extract(filepath: str, dpi: int = 150, lang: str = 'ces+eng') -> str:
-    """Convert PDF pages to images and run Tesseract on each."""
+def _pdf_ocr_extract(filepath: str) -> str:
+    """Convert PDF pages to images at OCR_PDF_DPI and run Tesseract on each."""
     try:
         import pytesseract
         from pdf2image import convert_from_path
+        from django.conf import settings as _s
+
+        cfg    = _get_ai_cfg()
+        dpi    = (cfg.ocr_pdf_dpi if cfg else None) or 300
+        lang   = (cfg.ocr_lang if cfg else None) or 'ces+eng'
+        config = '--oem 3 --psm 6'
 
         pages = convert_from_path(filepath, dpi=dpi)
-        texts = [pytesseract.image_to_string(page, lang=lang) for page in pages]
-        return '\n\n'.join(texts).strip()
+        texts = []
+        for page in pages:
+            page = _preprocess_for_ocr(page)
+            texts.append(pytesseract.image_to_string(page, lang=lang, config=config))
+        result = '\n\n'.join(texts).strip()
+        logger.debug('PDF OCR (%d dpi): %d chars, %d pages', dpi, len(result), len(pages))
+        return result
     except Exception:
         logger.exception('PDF OCR fallback failed for %s', filepath)
         return ''
@@ -119,18 +366,13 @@ def _pdf_ocr_extract(filepath: str, dpi: int = 150, lang: str = 'ces+eng') -> st
 # ---------------------------------------------------------------------------
 
 def extract_text_from_docx(filepath: str) -> str:
-    """Extract plain text from a .docx file using python-docx."""
     try:
         from docx import Document
-        doc = Document(filepath)
-        parts = []
-        for para in doc.paragraphs:
-            if para.text.strip():
-                parts.append(para.text)
-        # Also extract text from tables
+        doc   = Document(filepath)
+        parts = [p.text for p in doc.paragraphs if p.text.strip()]
         for table in doc.tables:
             for row in table.rows:
-                row_texts = [cell.text.strip() for cell in row.cells if cell.text.strip()]
+                row_texts = [c.text.strip() for c in row.cells if c.text.strip()]
                 if row_texts:
                     parts.append(' | '.join(row_texts))
         return '\n'.join(parts).strip()
@@ -140,18 +382,14 @@ def extract_text_from_docx(filepath: str) -> str:
 
 
 def extract_text_from_pptx(filepath: str) -> str:
-    """Extract plain text from a .pptx file using python-pptx."""
     try:
         from pptx import Presentation
-        prs = Presentation(filepath)
+        prs   = Presentation(filepath)
         parts = []
-        for slide_num, slide in enumerate(prs.slides, 1):
-            slide_texts = []
-            for shape in slide.shapes:
-                if hasattr(shape, 'text') and shape.text.strip():
-                    slide_texts.append(shape.text.strip())
-            if slide_texts:
-                parts.append(f'--- Snímek {slide_num} ---\n' + '\n'.join(slide_texts))
+        for i, slide in enumerate(prs.slides, 1):
+            texts = [s.text.strip() for s in slide.shapes if hasattr(s, 'text') and s.text.strip()]
+            if texts:
+                parts.append(f'--- Snímek {i} ---\n' + '\n'.join(texts))
         return '\n\n'.join(parts).strip()
     except Exception:
         logger.exception('pptx extraction failed for %s', filepath)
@@ -159,19 +397,18 @@ def extract_text_from_pptx(filepath: str) -> str:
 
 
 def extract_text_from_xlsx(filepath: str) -> str:
-    """Extract cell values from a .xlsx file using openpyxl."""
     try:
         import openpyxl
-        wb = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
+        wb    = openpyxl.load_workbook(filepath, read_only=True, data_only=True)
         parts = []
         for sheet in wb.worksheets:
-            sheet_parts = [f'=== {sheet.title} ===']
+            rows = []
             for row in sheet.iter_rows(values_only=True):
-                row_vals = [str(v) for v in row if v is not None and str(v).strip()]
-                if row_vals:
-                    sheet_parts.append(' | '.join(row_vals))
-            if len(sheet_parts) > 1:
-                parts.append('\n'.join(sheet_parts))
+                vals = [str(v) for v in row if v is not None and str(v).strip()]
+                if vals:
+                    rows.append(' | '.join(vals))
+            if rows:
+                parts.append(f'=== {sheet.title} ===\n' + '\n'.join(rows))
         wb.close()
         return '\n\n'.join(parts).strip()
     except Exception:
@@ -180,33 +417,28 @@ def extract_text_from_xlsx(filepath: str) -> str:
 
 
 def extract_text_from_odf(filepath: str) -> str:
-    """Extract text from ODF files (.odt, .ods, .odp) using odfpy."""
     try:
         from odf.opendocument import load
         from odf import text as odftext
         from odf.teletype import extractText
-        doc = load(filepath)
-        texts = []
-        for elem in doc.body.getElementsByType(odftext.P):
-            t = extractText(elem).strip()
-            if t:
-                texts.append(t)
-        return '\n'.join(texts).strip()
+        doc   = load(filepath)
+        texts = [extractText(e).strip() for e in doc.body.getElementsByType(odftext.P)]
+        return '\n'.join(t for t in texts if t).strip()
     except Exception:
         logger.exception('ODF extraction failed for %s', filepath)
         return ''
 
 
 def extract_text_from_office(filepath: str) -> str:
-    """Dispatch to the correct office extractor based on file extension."""
     import os
     ext = os.path.splitext(filepath)[1].lower()
-    if ext == '.docx':
-        return extract_text_from_docx(filepath)
-    if ext == '.pptx':
-        return extract_text_from_pptx(filepath)
-    if ext == '.xlsx':
-        return extract_text_from_xlsx(filepath)
-    if ext in ('.odt', '.ods', '.odp'):
-        return extract_text_from_odf(filepath)
-    return ''
+    dispatch = {
+        '.docx': extract_text_from_docx,
+        '.pptx': extract_text_from_pptx,
+        '.xlsx': extract_text_from_xlsx,
+        '.odt':  extract_text_from_odf,
+        '.ods':  extract_text_from_odf,
+        '.odp':  extract_text_from_odf,
+    }
+    fn = dispatch.get(ext)
+    return fn(filepath) if fn else ''

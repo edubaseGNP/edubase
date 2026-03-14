@@ -85,8 +85,12 @@ class MaterialUploadView(LoginRequiredMixin, View):
             raise PermissionDenied
 
     def _icon_context(self):
+        from django.conf import settings as _s
         from .icons import MATERIAL_ICONS
-        return {'material_icons': MATERIAL_ICONS}
+        return {
+            'material_icons': MATERIAL_ICONS,
+            'max_upload_mb': getattr(_s, 'MATERIAL_MAX_UPLOAD_MB', 50),
+        }
 
     def get(self, request, year_slug=None, subject_slug=None):
         subject = self._get_subject(year_slug, subject_slug)

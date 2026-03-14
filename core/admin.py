@@ -1,4 +1,5 @@
 import csv
+import urllib.request
 
 from django.contrib import admin
 from django.contrib.contenttypes.models import ContentType
@@ -9,6 +10,47 @@ from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 
 from .models import AuditLog, Notification, SiteConfig
+
+
+def _test_ai_backend(cfg) -> tuple[bool, str]:
+    """Quick connectivity / auth test for the configured AI backend."""
+    backend = cfg.ai_backend
+    try:
+        if backend == 'google':
+            if not cfg.google_ai_api_key:
+                return False, 'API klíč není nastaven'
+            from google import genai
+            client = genai.Client(api_key=cfg.google_ai_api_key)
+            # Minimal text request to verify key
+            resp = client.models.generate_content(
+                model='gemini-2.0-flash', contents=['Odpověz pouze: OK']
+            )
+            return True, f'Gemini připojen – {resp.text.strip()[:30]}'
+
+        if backend == 'anthropic':
+            if not cfg.anthropic_api_key:
+                return False, 'API klíč není nastaven'
+            import anthropic
+            client = anthropic.Anthropic(api_key=cfg.anthropic_api_key)
+            msg = client.messages.create(
+                model='claude-haiku-4-5-20251001', max_tokens=10,
+                messages=[{'role': 'user', 'content': 'Odpověz pouze: OK'}],
+            )
+            return True, f'Claude připojen – {msg.content[0].text.strip()[:30]}'
+
+        if backend == 'ollama':
+            url = (cfg.ollama_base_url or 'http://ollama:11434').rstrip('/')
+            req = urllib.request.Request(f'{url}/api/tags', method='GET')
+            with urllib.request.urlopen(req, timeout=5) as r:
+                import json
+                data = json.loads(r.read())
+            models = [m['name'] for m in data.get('models', [])]
+            return True, f'Ollama OK – modely: {", ".join(models[:3]) or "žádné"}'
+
+    except Exception as exc:
+        return False, str(exc)[:120]
+
+    return False, 'Neznámý backend'
 
 # Colors for action badges
 _ACTION_COLORS = {
@@ -50,9 +92,43 @@ class SiteConfigAdmin(ModelAdmin):
                 'Heslo je uloženo v čistém textu – doporučujeme App Password.'
             ),
         }),
+        (_('🤖 AI backend'), {
+            'fields': (
+                'ai_backend',
+                'ai_status',
+                'google_ai_api_key',
+                'anthropic_api_key',
+                'ollama_base_url', 'ollama_vision_model', 'ollama_text_model',
+            ),
+            'description': _(
+                'Vyberte AI backend pro Vision OCR (obrázky, naskenovaná PDF) a budoucí funkce. '
+                'Nastavení se projeví okamžitě – není třeba restartovat server.'
+            ),
+        }),
+        (_('⚙️ OCR Tesseract'), {
+            'fields': ('ocr_pdf_dpi', 'ocr_lang'),
+            'description': _(
+                'Tesseract se vždy použije jako záloha, i když je AI backend zapnutý.'
+            ),
+        }),
         (_('Stav'), {'fields': ('setup_complete', 'created_at', 'updated_at')}),
     )
-    readonly_fields = ('created_at', 'updated_at')
+    readonly_fields = ('created_at', 'updated_at', 'ai_status')
+
+    @admin.display(description=_('Stav připojení'))
+    def ai_status(self, obj):
+        backend = obj.ai_backend
+        if backend == 'none':
+            return format_html(
+                '<span style="color:#6b7280">⚪ Vypnuto – používá se Tesseract</span>'
+            )
+        ok, msg = _test_ai_backend(obj)
+        if ok:
+            return format_html('<span style="color:#16a34a">✅ {}</span>', msg)
+        return format_html('<span style="color:#dc2626">❌ {}</span>', msg)
+
+    class Media:
+        js = ('admin/js/ai_settings_toggle.js',)
 
     def has_add_permission(self, request):
         return not SiteConfig.objects.exists()

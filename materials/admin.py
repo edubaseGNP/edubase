@@ -3,6 +3,7 @@ import io
 import os
 import zipfile
 
+from django import forms
 from django.contrib import admin
 from django.db.models import Count, Sum
 from django.http import HttpResponse
@@ -10,7 +11,17 @@ from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin, TabularInline
 
+from .forms import IconPickerWidget
 from .models import Comment, Material, MaterialType, SchoolYear, SearchLog, Subject, SubjectVIP, SubjectYear, Tag
+
+
+class MaterialAdminForm(forms.ModelForm):
+    class Meta:
+        model = Material
+        fields = '__all__'
+        widgets = {
+            'icon': IconPickerWidget(),
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -175,6 +186,7 @@ class TagAdmin(ModelAdmin):
 
 @admin.register(Material)
 class MaterialAdmin(ModelAdmin):
+    form = MaterialAdminForm
     list_display = ['title', 'subject', 'material_type', 'author', 'is_published', 'ocr_processed', 'created_at']
     list_filter = ['material_type', 'is_published', 'ocr_processed', 'subject__school_year', 'tags']
     search_fields = ['title', 'description', 'extracted_text']

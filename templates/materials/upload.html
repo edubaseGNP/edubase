@@ -39,28 +39,28 @@
         </div>
 
         <!-- Icon picker panel -->
-        <div id="icon-picker" class="hidden mt-3 border border-gray-200 rounded-xl bg-white shadow-lg overflow-hidden">
-          <!-- Category tabs -->
-          <div class="flex overflow-x-auto border-b border-gray-100 bg-gray-50 px-2 pt-2 gap-1" id="icon-tabs">
+        <div id="icon-picker" class="hidden mt-3 border border-gray-200 rounded-xl bg-white shadow-lg">
+          <!-- Category tabs: flex-wrap → automatic line-break, no scroll -->
+          <div class="flex flex-wrap border-b border-gray-200 bg-gray-50 px-3 pt-3 pb-1 gap-1.5 rounded-t-xl" id="icon-tabs">
             {% for category, icons in material_icons.items %}
               <button type="button"
-                      onclick="showIconCategory('cat-{{ forloop.counter0 }}')"
-                      class="icon-tab flex-shrink-0 text-xs px-3 py-1.5 rounded-t-lg transition whitespace-nowrap
-                             {% if forloop.first %}bg-white border border-b-white border-gray-200 text-primary-700 font-semibold -mb-px{% else %}text-gray-500 hover:text-gray-700 hover:bg-gray-100{% endif %}"
-                      data-cat="cat-{{ forloop.counter0 }}">
+                      onclick="showIconCategory({{ forloop.counter0 }})"
+                      id="tab-{{ forloop.counter0 }}"
+                      class="icon-tab text-xs px-3 py-1.5 rounded-lg border border-transparent transition whitespace-nowrap">
                 {{ category }}
               </button>
             {% endfor %}
-          </div>
+          </div><!-- /icon-tabs -->
           <!-- Icon grids -->
-          <div class="p-3 max-h-48 overflow-y-auto">
+          <div class="p-4 max-h-56 overflow-y-auto">
             {% for category, icons in material_icons.items %}
-              <div id="cat-{{ forloop.counter0 }}" class="icon-category {% if not forloop.first %}hidden{% endif %}">
-                <div class="grid grid-cols-8 sm:grid-cols-10 gap-1">
+              <div id="cat-{{ forloop.counter0 }}" class="icon-category hidden">
+                <div class="flex flex-wrap gap-1.5">
                   {% for icon in icons %}
                     <button type="button"
-                            onclick="selectIcon('{{ icon }}')"
-                            class="text-xl w-9 h-9 flex items-center justify-center rounded-lg hover:bg-primary-50 transition"
+                            data-icon="{{ icon }}"
+                            onclick="selectIcon(this.dataset.icon)"
+                            class="text-xl min-w-[2.25rem] h-9 px-1 flex items-center justify-center rounded-lg hover:bg-primary-50 transition flex-shrink-0"
                             title="{{ icon }}">{{ icon }}</button>
                   {% endfor %}
                 </div>
@@ -86,20 +86,25 @@
       </div>
 
       <!-- ── Subject + Type row ── -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label for="{{ form.subject.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
-            {% trans "Předmět" %} <span class="text-red-500">*</span>
-          </label>
-          <select name="subject" id="{{ form.subject.id_for_label }}"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white">
-            <option value="">–</option>
-            {% for opt in form.subject %}{{ opt }}{% endfor %}
-          </select>
-          {% for error in form.subject.errors %}
-            <p class="mt-1 text-sm text-red-600">{{ error }}</p>
-          {% endfor %}
-        </div>
+      <div class="grid grid-cols-1 {% if not subject %}sm:grid-cols-2{% endif %} gap-4">
+        {% if subject %}
+          <!-- Subject is pre-selected from the URL – show read-only badge + hidden input -->
+          <input type="hidden" name="subject" value="{{ subject.pk }}">
+        {% else %}
+          <div>
+            <label for="{{ form.subject.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
+              {% trans "Předmět" %} <span class="text-red-500">*</span>
+            </label>
+            <select name="subject" id="{{ form.subject.id_for_label }}"
+                    class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 bg-white">
+              <option value="">–</option>
+              {% for opt in form.subject %}{{ opt }}{% endfor %}
+            </select>
+            {% for error in form.subject.errors %}
+              <p class="mt-1 text-sm text-red-600">{{ error }}</p>
+            {% endfor %}
+          </div>
+        {% endif %}
         <div>
           <label for="{{ form.material_type.id_for_label }}" class="block text-sm font-medium text-gray-700 mb-1">
             {% trans "Typ" %} <span class="text-red-500">*</span>
@@ -140,7 +145,7 @@
                class="w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100 cursor-pointer">
         <p class="mt-1 text-xs text-gray-400">
           {% trans "PDF, JPG, PNG, WEBP · Word (.docx), PowerPoint (.pptx), Excel (.xlsx) · LibreOffice (.odt, .odp, .ods)" %}
-          · max {{ request.META|default:'' }}{% blocktrans with mb=50 %}{{ mb }} MB{% endblocktrans %}
+          · {% blocktrans with mb=max_upload_mb %}max {{ mb }} MB{% endblocktrans %}
         </p>
         {% for error in form.file.errors %}
           <p class="mt-1 text-sm text-red-600">{{ error }}</p>
@@ -205,9 +210,17 @@
 </div>
 
 <script>
+// Activate first tab on load
+document.addEventListener('DOMContentLoaded', function() {
+  showIconCategory(0);
+});
+
 function toggleIconPicker() {
   const picker = document.getElementById('icon-picker');
   picker.classList.toggle('hidden');
+  if (!picker.classList.contains('hidden')) {
+    showIconCategory(0);
+  }
 }
 
 function selectIcon(emoji) {
@@ -216,19 +229,18 @@ function selectIcon(emoji) {
   document.getElementById('icon-picker').classList.add('hidden');
 }
 
-function showIconCategory(catId) {
+function showIconCategory(idx) {
   document.querySelectorAll('.icon-category').forEach(el => el.classList.add('hidden'));
-  document.getElementById(catId).classList.remove('hidden');
-  document.querySelectorAll('.icon-tab').forEach(btn => {
-    const active = btn.dataset.cat === catId;
-    btn.className = btn.className
-      .replace(/bg-white border border-b-white border-gray-200 text-primary-700 font-semibold -mb-px/g, '')
-      .replace(/text-gray-500 hover:text-gray-700 hover:bg-gray-100/g, '')
-      .trim();
-    if (active) {
-      btn.className += ' bg-white border border-b-white border-gray-200 text-primary-700 font-semibold -mb-px';
+  const grid = document.getElementById('cat-' + idx);
+  if (grid) grid.classList.remove('hidden');
+
+  document.querySelectorAll('.icon-tab').forEach(function(btn, i) {
+    if (i === idx) {
+      btn.classList.add('bg-white', 'text-primary-700', 'font-semibold', 'border-primary-300', 'shadow-sm');
+      btn.classList.remove('text-gray-500', 'hover:bg-gray-100');
     } else {
-      btn.className += ' text-gray-500 hover:text-gray-700 hover:bg-gray-100';
+      btn.classList.remove('bg-white', 'text-primary-700', 'font-semibold', 'border-primary-300', 'shadow-sm');
+      btn.classList.add('text-gray-500', 'hover:bg-gray-100');
     }
   });
 }
@@ -249,7 +261,7 @@ function toggleSource(src) {
 document.addEventListener('click', function(e) {
   const picker  = document.getElementById('icon-picker');
   const preview = document.getElementById('icon-preview');
-  if (!picker.contains(e.target) && !preview.contains(e.target)) {
+  if (picker && !picker.contains(e.target) && !preview.contains(e.target)) {
     picker.classList.add('hidden');
   }
 });
