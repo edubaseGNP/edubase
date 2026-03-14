@@ -9,7 +9,7 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from unfold.admin import ModelAdmin
 
-from .models import AuditLog, Notification, SiteConfig
+from .models import AICallLog, AuditLog, Notification, SiteConfig
 
 
 def _test_ai_backend(cfg) -> tuple[bool, str]:
@@ -111,6 +111,9 @@ class SiteConfigAdmin(ModelAdmin):
                 'Tesseract se vždy použije jako záloha, i když je AI backend zapnutý.'
             ),
         }),
+        (_('📁 Nahrávání souborů'), {
+            'fields': ('max_upload_mb',),
+        }),
         (_('Stav'), {'fields': ('setup_complete', 'created_at', 'updated_at')}),
     )
     readonly_fields = ('created_at', 'updated_at', 'ai_status')
@@ -210,6 +213,102 @@ class AuditLogAdmin(ModelAdmin):
                 f'{entry.content_type.model} #{entry.object_id}' if entry.content_type else '',
                 entry.description,
                 entry.ip_address or '',
+            ])
+        return response
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+_BACKEND_COLORS = {
+    'google':    ('#dbeafe', '#1e40af'),
+    'anthropic': ('#ede9fe', '#5b21b6'),
+    'ollama':    ('#dcfce7', '#166534'),
+    'tesseract': ('#f3f4f6', '#374151'),
+    'pdfminer':  ('#fef9c3', '#713f12'),
+    'office':    ('#cffafe', '#155e75'),
+}
+
+_COST_CZK = {
+    'google':    0.01,
+    'anthropic': 0.11,
+}
+
+
+@admin.register(AICallLog)
+class AICallLogAdmin(ModelAdmin):
+    list_display = [
+        'timestamp', 'backend_badge', 'material_link',
+        'success_badge', 'chars_extracted', 'duration_ms', 'cost_display',
+    ]
+    list_filter   = ['backend', 'success']
+    search_fields = ['material__title']
+    readonly_fields = [
+        'timestamp', 'backend', 'material', 'success',
+        'chars_extracted', 'duration_ms', 'error_msg',
+    ]
+    date_hierarchy = 'timestamp'
+    actions = ['export_csv']
+
+    @admin.display(description=_('Backend'), ordering='backend')
+    def backend_badge(self, obj):
+        bg, fg = _BACKEND_COLORS.get(obj.backend, ('#f3f4f6', '#374151'))
+        return format_html(
+            '<span style="background:{};color:{};padding:2px 8px;border-radius:12px;'
+            'font-size:.75rem;font-weight:600">{}</span>',
+            bg, fg, obj.backend,
+        )
+
+    @admin.display(description=_('Materiál'))
+    def material_link(self, obj):
+        if not obj.material_id:
+            return '—'
+        label = obj.material.title[:50] if obj.material else f'#{obj.material_id}'
+        try:
+            url = reverse('admin:materials_material_change', args=[obj.material_id])
+            return format_html('<a href="{}">{}</a>', url, label)
+        except NoReverseMatch:
+            return label
+
+    @admin.display(description=_('Výsledek'), ordering='success')
+    def success_badge(self, obj):
+        if obj.success:
+            return format_html('<span style="color:#16a34a;font-weight:600">✅ OK</span>')
+        return format_html(
+            '<span style="color:#dc2626;font-weight:600" title="{}">❌ Chyba</span>',
+            obj.error_msg,
+        )
+
+    @admin.display(description=_('Cena (Kč)'))
+    def cost_display(self, obj):
+        cost = _COST_CZK.get(obj.backend, 0.0) if obj.success else 0.0
+        return f'{cost:.2f} Kč' if cost else '—'
+
+    @admin.action(description=_('Exportovat jako CSV'))
+    def export_csv(self, request, queryset):
+        import csv as csv_mod
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="ai_call_log.csv"'
+        response.write('\ufeff')
+        writer = csv_mod.writer(response)
+        writer.writerow(['Čas', 'Backend', 'Materiál', 'Úspěch', 'Znaky', 'Trvání (ms)', 'Cena (Kč)', 'Chyba'])
+        for entry in queryset.select_related('material'):
+            cost = _COST_CZK.get(entry.backend, 0.0) if entry.success else 0.0
+            writer.writerow([
+                entry.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+                entry.backend,
+                entry.material.title if entry.material else '',
+                'Ano' if entry.success else 'Ne',
+                entry.chars_extracted,
+                entry.duration_ms,
+                f'{cost:.2f}' if cost else '0',
+                entry.error_msg,
             ])
         return response
 

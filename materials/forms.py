@@ -175,13 +175,16 @@ class MaterialUploadForm(forms.ModelForm):
         if not file:
             return file
 
-        # Size check
-        max_bytes = settings.MATERIAL_MAX_UPLOAD_MB * 1024 * 1024
+        # Size check – prefer SiteConfig (editable in admin), fallback to settings
+        try:
+            from core.models import SiteConfig
+            max_mb = SiteConfig.get().max_upload_mb
+        except Exception:
+            max_mb = settings.MATERIAL_MAX_UPLOAD_MB
+        max_bytes = max_mb * 1024 * 1024
         if file.size > max_bytes:
             raise forms.ValidationError(
-                _('Soubor je příliš velký. Maximum je %(max)d MB.') % {
-                    'max': settings.MATERIAL_MAX_UPLOAD_MB
-                }
+                _('Soubor je příliš velký. Maximum je %(max)d MB.') % {'max': max_mb}
             )
 
         # Extension check

@@ -99,6 +99,13 @@ class SiteConfig(models.Model):
         help_text=_('Jazykové balíčky pro Tesseract, např. ces+eng nebo ces.'),
     )
 
+    # ---- Upload limits ------------------------------------------------------
+    max_upload_mb = models.PositiveSmallIntegerField(
+        default=50,
+        verbose_name=_('Max. velikost uploadu (MB)'),
+        help_text=_('Maximální velikost nahrávaného souboru v megabajtech.'),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -184,6 +191,58 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f'[{self.timestamp:%Y-%m-%d %H:%M}] {self.user} – {self.action}'
+
+
+class AICallLog(models.Model):
+    """
+    Immutable log of every AI/OCR extraction call.
+    Created by materials.tasks.extract_text_task after each run.
+    """
+
+    timestamp     = models.DateTimeField(auto_now_add=True, db_index=True)
+    backend       = models.CharField(
+        max_length=20,
+        db_index=True,
+        verbose_name=_('Backend'),
+        help_text=_('google | anthropic | ollama | tesseract | pdfminer | office'),
+    )
+    # Soft FK – material may be deleted but log survives
+    material      = models.ForeignKey(
+        'materials.Material',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='ai_logs',
+        verbose_name=_('Materiál'),
+    )
+    success       = models.BooleanField(default=True, verbose_name=_('Úspěch'), db_index=True)
+    chars_extracted = models.PositiveIntegerField(default=0, verbose_name=_('Znaky'))
+    duration_ms   = models.PositiveIntegerField(default=0, verbose_name=_('Trvání (ms)'))
+    error_msg     = models.CharField(
+        max_length=500, blank=True, default='',
+        verbose_name=_('Chyba'),
+    )
+
+    # Cost estimates (CZK per successful call, 2025 pricing)
+    _COST_CZK = {
+        'google':    0.01,
+        'anthropic': 0.11,
+        'ollama':    0.0,
+        'tesseract': 0.0,
+        'pdfminer':  0.0,
+        'office':    0.0,
+    }
+
+    @property
+    def estimated_cost_czk(self) -> float:
+        return self._COST_CZK.get(self.backend, 0.0) if self.success else 0.0
+
+    class Meta:
+        verbose_name = _('AI/OCR volání')
+        verbose_name_plural = _('AI/OCR volání')
+        ordering = ['-timestamp']
+
+    def __str__(self):
+        return f'[{self.timestamp:%Y-%m-%d %H:%M}] {self.backend} – {self.chars_extracted} znaků'
 
 
 class Notification(models.Model):

@@ -286,6 +286,7 @@ UNFOLD = {
                 'separator': True,
                 'items': [
                     {'title': 'Záznamy auditu', 'icon': 'history', 'link': '/admin/core/auditlog/'},
+                    {'title': 'AI/OCR log', 'icon': 'smart_toy', 'link': '/admin/core/aicalllog/'},
                     {'title': 'Konfigurace', 'icon': 'settings', 'link': '/admin/core/siteconfig/'},
                     {'title': 'Weby (Sites)', 'icon': 'language', 'link': '/admin/sites/site/'},
                 ],
