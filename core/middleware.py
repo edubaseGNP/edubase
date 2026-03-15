@@ -14,9 +14,23 @@ class SecurityHeadersMiddleware:
     cross-origin frame embedding (clickjacking).
     """
 
+    # Frontend CSP – no eval needed
     _CSP = (
         "default-src 'self'; "
         "script-src 'self' 'unsafe-inline'; "
+        "style-src 'self' 'unsafe-inline'; "
+        "img-src 'self' data: https:; "
+        "font-src 'self' data:; "
+        "connect-src 'self'; "
+        "object-src 'none'; "
+        "base-uri 'self'; "
+        "frame-ancestors 'self';"
+    )
+
+    # Admin CSP – unsafe-eval required by Alpine.js v3 (uses new Function() for directives)
+    _CSP_ADMIN = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
         "style-src 'self' 'unsafe-inline'; "
         "img-src 'self' data: https:; "
         "font-src 'self' data:; "
@@ -34,5 +48,6 @@ class SecurityHeadersMiddleware:
         response['Permissions-Policy'] = 'camera=(), microphone=(), geolocation=(), payment=()'
         response['X-DNS-Prefetch-Control'] = 'off'
         if 'Content-Security-Policy' not in response:
-            response['Content-Security-Policy'] = self._CSP
+            csp = self._CSP_ADMIN if request.path.startswith('/admin/') else self._CSP
+            response['Content-Security-Policy'] = csp
         return response

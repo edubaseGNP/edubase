@@ -128,6 +128,7 @@ class SubjectYearsInline(TabularInline):
 class SchoolYearAdmin(ModelAdmin):
     list_display = ['name', 'is_active', 'subject_count', 'created_by', 'created_at']
     list_filter = ['is_active']
+    list_filter_sheet = True
     search_fields = ['name']
     prepopulated_fields = {'slug': ('name',)}
     inlines = [SubjectYearInline]
@@ -157,6 +158,7 @@ class SubjectAdmin(ModelAdmin):
 class SubjectYearAdmin(ModelAdmin):
     list_display = ['subject', 'school_year', 'classroom_link_display']
     list_filter = ['school_year']
+    list_filter_sheet = True
     search_fields = ['subject__name', 'school_year__name']
     autocomplete_fields = ['subject', 'school_year']
     filter_horizontal = ['teachers']
@@ -192,6 +194,7 @@ class MaterialAdmin(ModelAdmin):
     form = MaterialAdminForm
     list_display = ['title', 'subject', 'material_type', 'author', 'is_published', 'av_status', 'ocr_processed', 'created_at']
     list_filter = ['material_type', 'is_published', 'av_status', 'ocr_processed', 'subject__school_year', 'tags']
+    list_filter_sheet = True
     search_fields = ['title', 'description', 'extracted_text']
     readonly_fields = ['extracted_text', 'ocr_processed', 'ocr_status_with_action', 'created_at', 'updated_at']
     filter_horizontal = ['tags']
@@ -379,6 +382,7 @@ class MaterialAdmin(ModelAdmin):
 class CommentAdmin(ModelAdmin):
     list_display = ['material', 'author', 'created_at', 'is_visible']
     list_filter = ['is_visible']
+    list_filter_sheet = True
     search_fields = ['text', 'author__email', 'material__title']
     readonly_fields = ['material', 'author', 'created_at']
     actions = ['hide_comments']
@@ -392,6 +396,7 @@ class CommentAdmin(ModelAdmin):
 class SubjectVIPAdmin(ModelAdmin):
     list_display = ['user', 'subject', 'granted_by', 'granted_at']
     list_filter = ['subject__school_year', 'subject']
+    list_filter_sheet = True
     search_fields = ['user__email', 'user__username', 'subject__subject__name']
     autocomplete_fields = ['user', 'subject']
     readonly_fields = ['granted_at']
@@ -414,6 +419,7 @@ class ZeroResultsFilter(admin.SimpleListFilter):
 class SearchLogAdmin(ModelAdmin):
     list_display = ['timestamp', 'query', 'user', 'results_count', 'zero_results_badge', 'duration_ms', 'year_filter', 'subject_filter']
     list_filter = [ZeroResultsFilter, 'year_filter', 'subject_filter']
+    list_filter_sheet = True
     search_fields = ['query', 'user__email', 'user__username']
     readonly_fields = ['query', 'user', 'results_count', 'year_filter', 'subject_filter', 'timestamp', 'duration_ms', 'clicked_result_id']
     date_hierarchy = 'timestamp'

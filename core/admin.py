@@ -148,6 +148,7 @@ class AuditLogAdmin(ModelAdmin):
         'object_link', 'short_description', 'ip_address',
     ]
     list_filter = ['action', 'level', 'content_type']
+    list_filter_sheet = True
     search_fields = ['user__email', 'user__username', 'description', 'ip_address']
     readonly_fields = [
         'user', 'action', 'level', 'content_type', 'object_id',
@@ -261,6 +262,7 @@ class AICallLogAdmin(ModelAdmin):
         'chars_extracted', 'duration_ms', 'tokens_used', 'cost_display', 'trigger',
     ]
     list_filter   = ['backend', 'success', 'file_type', 'trigger']
+    list_filter_sheet = True
     search_fields = ['material__title']
     readonly_fields = [
         'timestamp', 'backend', 'material', 'success',
@@ -393,6 +395,7 @@ class AICallLogAdmin(ModelAdmin):
 class NotificationAdmin(ModelAdmin):
     list_display = ['recipient', 'verb_short', 'is_read', 'created_at']
     list_filter = ['is_read']
+    list_filter_sheet = True
     search_fields = ['recipient__email', 'verb']
     readonly_fields = ['recipient', 'verb', 'target_url', 'is_read', 'created_at']
     date_hierarchy = 'created_at'

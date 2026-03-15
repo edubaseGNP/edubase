@@ -8,6 +8,7 @@ services:
       POSTGRES_USER: ${DB_USER:-edubase}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-edubase_secret}
     restart: unless-stopped
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-edubase}"]
       interval: 10s
@@ -19,6 +20,7 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    mem_limit: 256m
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -46,6 +48,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    mem_limit: 512m
     healthcheck:
       test: ["CMD-SHELL", "curl -sf http://localhost:8000/health/ || exit 1"]
       interval: 30s
@@ -55,7 +58,7 @@ services:
 
   celery:
     build: .
-    command: celery -A edubase worker --loglevel=info --concurrency=2 --queues=default
+    command: celery -A edubase worker --loglevel=info --concurrency=4 --queues=default
     volumes:
       - .:/app
       - media_volume:/app/media
@@ -72,6 +75,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    mem_limit: 512m
 
   # Dedicated AI/OCR worker: concurrency=1 ensures rate_limit='12/m' is truly global
   celery-ai:
@@ -92,6 +96,7 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    mem_limit: 512m
 
   celery-beat:
     build: .
@@ -110,13 +115,17 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    mem_limit: 128m
 
   # ClamAV – antivirus daemon for scanning uploaded files
+  # NOTE: ClamAV loads ~1 GB of virus signatures into RAM. On a 6 GB server
+  # we can give it 1.5 g for faster scanning; if it hits the limit it restarts.
   clamav:
     image: clamav/clamav:1.4
     volumes:
       - clamav_data:/var/lib/clamav
     restart: unless-stopped
+    mem_limit: 1500m
     healthcheck:
       test: ["CMD-SHELL", "clamdcheck.sh || exit 1"]
       interval: 60s
@@ -142,6 +151,7 @@ services:
     depends_on:
       - redis
     restart: unless-stopped
+    mem_limit: 256m
 
   # ---------------------------------------------------------------------------
   # Ollama – lokální AI inference (Vision OCR + text tasks), ZDARMA

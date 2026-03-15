@@ -59,6 +59,7 @@ def _export_xlsx(filename, headers, rows):
 class UserAdmin(ModelAdmin, BaseUserAdmin):
     list_display = ['email', 'username', 'get_full_name', 'role', 'is_active', 'date_joined']
     list_filter = ['role', 'is_active', 'is_staff']
+    list_filter_sheet = True
     search_fields = ['email', 'username', 'first_name', 'last_name']
     ordering = ['-date_joined']
 
