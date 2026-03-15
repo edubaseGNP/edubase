@@ -162,7 +162,7 @@ class AuditLogUserRoleFilter(admin.SimpleListFilter):
 
     def lookups(self, request, model_admin):
         from users.models import User
-        return User.ROLE_CHOICES
+        return User.Role.choices
 
     def queryset(self, request, queryset):
         if self.value():
