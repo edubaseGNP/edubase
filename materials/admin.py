@@ -378,18 +378,113 @@ class MaterialAdmin(ModelAdmin):
         return response
 
 
+class CommentSchoolYearFilter(admin.SimpleListFilter):
+    title = _('Školní ročník')
+    parameter_name = 'school_year'
+
+    def lookups(self, request, model_admin):
+        return [
+            (sy.slug, str(sy))
+            for sy in SchoolYear.objects.order_by('-name')
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(material__subject__school_year__slug=self.value())
+        return queryset
+
+
+class CommentSubjectFilter(admin.SimpleListFilter):
+    title = _('Předmět')
+    parameter_name = 'subject'
+
+    def lookups(self, request, model_admin):
+        return [
+            (s.slug, s.name)
+            for s in Subject.objects.order_by('name')
+        ]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(material__subject__subject__slug=self.value())
+        return queryset
+
+
 @admin.register(Comment)
 class CommentAdmin(ModelAdmin):
-    list_display = ['material', 'author', 'created_at', 'is_visible']
-    list_filter = ['is_visible']
+    list_display = [
+        'text_preview', 'material_link', 'subject_display',
+        'author', 'created_at', 'visibility_badge',
+    ]
+    list_filter = [CommentSchoolYearFilter, CommentSubjectFilter, 'is_visible']
     list_filter_sheet = True
     search_fields = ['text', 'author__email', 'material__title']
     readonly_fields = ['material', 'author', 'created_at']
-    actions = ['hide_comments']
+    date_hierarchy = 'created_at'
+    actions = ['hide_comments', 'show_comments', 'export_csv']
 
-    @admin.action(description='Skrýt vybrané komentáře')
+    @admin.display(description=_('Text'), ordering='text')
+    def text_preview(self, obj):
+        preview = obj.text[:80] + ('…' if len(obj.text) > 80 else '')
+        return preview
+
+    @admin.display(description=_('Materiál'))
+    def material_link(self, obj):
+        if not obj.material_id:
+            return '—'
+        url = reverse('admin:materials_material_change', args=[obj.material_id])
+        return format_html('<a href="{}">{}</a>', url, obj.material.title[:40])
+
+    @admin.display(description=_('Předmět / Ročník'))
+    def subject_display(self, obj):
+        try:
+            sy = obj.material.subject
+            return format_html(
+                '<span style="font-size:.8rem">{}</span>'
+                '<br><span style="font-size:.75rem;color:#6b7280">{}</span>',
+                sy.subject.name,
+                sy.school_year,
+            )
+        except Exception:
+            return '—'
+
+    @admin.display(description=_('Stav'), ordering='is_visible')
+    def visibility_badge(self, obj):
+        if obj.is_visible:
+            return format_html('<span style="color:#16a34a;font-weight:600">✓ Viditelný</span>')
+        return format_html('<span style="color:#dc2626;font-weight:600">✗ Skrytý</span>')
+
+    @admin.action(description=_('Skrýt vybrané komentáře'))
     def hide_comments(self, request, queryset):
-        queryset.update(is_visible=False)
+        updated = queryset.update(is_visible=False)
+        self.message_user(request, f'Skryto {updated} komentářů.')
+
+    @admin.action(description=_('Zobrazit vybrané komentáře'))
+    def show_comments(self, request, queryset):
+        updated = queryset.update(is_visible=True)
+        self.message_user(request, f'Zobrazeno {updated} komentářů.')
+
+    @admin.action(description=_('Exportovat jako CSV'))
+    def export_csv(self, request, queryset):
+        response = HttpResponse(content_type='text/csv; charset=utf-8')
+        response['Content-Disposition'] = 'attachment; filename="komentare.csv"'
+        response.write('\ufeff')
+        writer = csv.writer(response)
+        writer.writerow(['ID', 'Materiál', 'Předmět', 'Ročník', 'Autor', 'Text', 'Čas', 'Viditelný'])
+        for c in queryset.select_related('author', 'material__subject__subject', 'material__subject__school_year'):
+            try:
+                subj = c.material.subject.subject.name
+                year = str(c.material.subject.school_year)
+            except Exception:
+                subj = year = ''
+            writer.writerow([
+                c.pk, c.material.title, subj, year,
+                c.author.email if c.author else '',
+                c.text,
+                c.created_at.strftime('%Y-%m-%d %H:%M'),
+                'Ano' if c.is_visible else 'Ne',
+            ])
+        return response
 
 
 @admin.register(SubjectVIP)

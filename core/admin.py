@@ -141,13 +141,42 @@ class SiteConfigAdmin(ModelAdmin):
         return False
 
 
+class AuditLogHasIPFilter(admin.SimpleListFilter):
+    title = _('IP adresa')
+    parameter_name = 'has_ip'
+
+    def lookups(self, request, model_admin):
+        return [('yes', _('S IP adresou')), ('no', _('Bez IP adresy'))]
+
+    def queryset(self, request, queryset):
+        if self.value() == 'yes':
+            return queryset.exclude(ip_address__isnull=True).exclude(ip_address='')
+        if self.value() == 'no':
+            return queryset.filter(ip_address__isnull=True) | queryset.filter(ip_address='')
+        return queryset
+
+
+class AuditLogUserRoleFilter(admin.SimpleListFilter):
+    title = _('Role uživatele')
+    parameter_name = 'user_role'
+
+    def lookups(self, request, model_admin):
+        from users.models import User
+        return User.ROLE_CHOICES
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(user__role=self.value())
+        return queryset
+
+
 @admin.register(AuditLog)
 class AuditLogAdmin(ModelAdmin):
     list_display = [
-        'timestamp', 'action_badge', 'level_badge', 'user',
+        'timestamp', 'action_badge', 'level_badge', 'user_with_role',
         'object_link', 'short_description', 'ip_address',
     ]
-    list_filter = ['action', 'level', 'content_type']
+    list_filter = ['action', 'level', 'content_type', AuditLogUserRoleFilter, AuditLogHasIPFilter]
     list_filter_sheet = True
     search_fields = ['user__email', 'user__username', 'description', 'ip_address']
     readonly_fields = [
@@ -165,6 +194,18 @@ class AuditLogAdmin(ModelAdmin):
             '<span style="background:{};color:{};padding:2px 8px;border-radius:12px;'
             'font-size:0.75rem;font-weight:600;white-space:nowrap">{}</span>',
             bg, fg, label,
+        )
+
+    @admin.display(description=_('Uživatel'), ordering='user__email')
+    def user_with_role(self, obj):
+        if not obj.user:
+            return format_html('<span style="color:#9ca3af">—</span>')
+        role = obj.user.get_role_display() if hasattr(obj.user, 'get_role_display') else ''
+        url = reverse('admin:users_user_change', args=[obj.user_id])
+        return format_html(
+            '<a href="{}" style="font-weight:500">{}</a>'
+            '<br><span style="font-size:.7rem;color:#6b7280">{}</span>',
+            url, obj.user.email, role,
         )
 
     @admin.display(description=_('Úroveň'), ordering='level')
@@ -252,6 +293,20 @@ _FILE_TYPE_COLORS = {
 }
 
 
+class AICallLogSchoolYearFilter(admin.SimpleListFilter):
+    title = _('Školní ročník')
+    parameter_name = 'school_year'
+
+    def lookups(self, request, model_admin):
+        from materials.models import SchoolYear
+        return [(sy.slug, str(sy)) for sy in SchoolYear.objects.order_by('-name')]
+
+    def queryset(self, request, queryset):
+        if self.value():
+            return queryset.filter(material__subject__school_year__slug=self.value())
+        return queryset
+
+
 @admin.register(AICallLog)
 class AICallLogAdmin(ModelAdmin):
     change_list_template = 'admin/core/aicalllog/change_list.html'
@@ -261,7 +316,7 @@ class AICallLogAdmin(ModelAdmin):
         'material_link', 'success_badge', 'attempt',
         'chars_extracted', 'duration_ms', 'tokens_used', 'cost_display', 'trigger',
     ]
-    list_filter   = ['backend', 'success', 'file_type', 'trigger']
+    list_filter   = ['backend', 'success', 'file_type', 'trigger', AICallLogSchoolYearFilter]
     list_filter_sheet = True
     search_fields = ['material__title']
     readonly_fields = [
@@ -393,25 +448,45 @@ class AICallLogAdmin(ModelAdmin):
 
 @admin.register(Notification)
 class NotificationAdmin(ModelAdmin):
-    list_display = ['recipient', 'verb_short', 'is_read', 'created_at']
+    list_display = ['recipient', 'verb_short', 'target_link', 'read_badge', 'created_at']
     list_filter = ['is_read']
     list_filter_sheet = True
     search_fields = ['recipient__email', 'verb']
     readonly_fields = ['recipient', 'verb', 'target_url', 'is_read', 'created_at']
     date_hierarchy = 'created_at'
-    actions = ['mark_read', 'mark_unread']
+    actions = ['mark_read', 'mark_unread', 'delete_selected_notifications']
 
     @admin.display(description=_('Zpráva'))
     def verb_short(self, obj):
         return obj.verb[:80] + ('…' if len(obj.verb) > 80 else '')
 
+    @admin.display(description=_('Odkaz'))
+    def target_link(self, obj):
+        if not obj.target_url:
+            return '—'
+        return format_html('<a href="{}" target="_blank">↗</a>', obj.target_url)
+
+    @admin.display(description=_('Stav'), ordering='is_read')
+    def read_badge(self, obj):
+        if obj.is_read:
+            return format_html('<span style="color:#6b7280;font-size:.8rem">přečteno</span>')
+        return format_html('<span style="color:#d97706;font-weight:600;font-size:.8rem">● nové</span>')
+
     @admin.action(description=_('Označit jako přečtené'))
     def mark_read(self, request, queryset):
-        queryset.update(is_read=True)
+        updated = queryset.update(is_read=True)
+        self.message_user(request, f'Označeno přečtených: {updated}.')
 
     @admin.action(description=_('Označit jako nepřečtené'))
     def mark_unread(self, request, queryset):
-        queryset.update(is_read=False)
+        updated = queryset.update(is_read=False)
+        self.message_user(request, f'Označeno nepřečtených: {updated}.')
+
+    @admin.action(description=_('Smazat vybrané notifikace'))
+    def delete_selected_notifications(self, request, queryset):
+        count = queryset.count()
+        queryset.delete()
+        self.message_user(request, f'Smazáno {count} notifikací.')
 
     def has_add_permission(self, request):
         return False
